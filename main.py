@@ -296,10 +296,12 @@ def paris_solaire():
 
 
 def paris():
-    np.fill((0, 0, 0, 5))
-    set_area(1, 5, (0, 10, 15, 0), (0, 5, 10, 5))
-    set_area(65, 5, (0, 10, 15, 0), (0, 5, 10, 5))
-    set_area(142, 3, (0, 10, 15, 0), (0, 5, 10, 5))
+    bg = (0, 0, 0, 5)
+    river = (0, 10, 15, 0)
+    np.fill(bg)
+    set_area(1, 5, river, bg)
+    set_area(65, 5, river, bg)
+    set_area(142, 3, river, bg)
 
 
 def sun(i):
