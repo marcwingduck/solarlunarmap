@@ -281,30 +281,14 @@ def set_area(center, size, primary, secondary):
         np[i % n] = color
 
 
-def bounce(cardinal, primary, secondary, tertiary, keep=False, times=1):
-    start, end = cardinals[cardinal][2]
-    size = end - start
-    for i in range(times * size):
-        if not keep:
-            for j in range(size):
-                np[start + j] = primary
-        if (i // size) % 2 == 0:
-            np[start + i % size] = secondary
-        else:
-            np[end - 1 - (i % size)] = tertiary
-        np.write()
-        utime.sleep_ms(1)
-    uni(off)
+def neon():
+    set_sides(cyan, yellow, magenta, green)
+    np.write()
 
 
 def paris_solaire():
     paris()
     solar((48.860536, 2.332237), utime.localtime())
-    np.write()
-
-
-def neon():
-    set_sides(cyan, yellow, magenta, green)
     np.write()
 
 
@@ -329,21 +313,29 @@ def moon(i):
 # ##############################################################################
 
 
+def ramp_up():
+    c = cardinals['south'][0]
+    size = (w + 2 * h)
+    d = (size + 1) % 2
+    for i in range(size // 2):
+        np[c - d - (i % n)] = (0, 1, 2, 3)
+        np[c + (i % n)] = (0, 1, 2, 3)
+        np.write()
+        utime.sleep_ms(10)
+    fade = 32
+    for i in range(fade):
+        color = interpolate_rgbw(off, (0, 10, 15, 20), i / fade)
+        set_area(cardinals['north'][0], w, color, off)
+        np.write()
+        utime.sleep_ms(1)
+    utime.sleep_ms(50)
+
+
 def solar(lat_long_deg, utc_time):
     azim, elev = calc_solar_position(lat_long_deg, utc_time)
     i = intersect_azimuth_with_frame(azim)
     if i is not None:
         sun(i) if elev > 0. else moon(i)
-
-
-def solar_test():
-    for i in range(24):
-        for j in range(0, 60, 10):
-            paris()
-            solar((48.860536, 2.332237), (2019, 1, 27, i, j, 0, 6, 27))
-            np.write()
-            utime.sleep_ms(1)
-    uni(off)
 
 
 # ##############################################################################
@@ -353,14 +345,7 @@ if __name__ == '__main__':
     init()
 
     uni(off)
-    # bounce('north', off, (0, 0, 0, 10), off, True)
-    for i in range(n):
-        np[i] = (0, 0, 0, 10)
-        np.write()
-
-    paris()
-    np.write()
-    utime.sleep(1)
+    ramp_up()
     paris_solaire()
 
     timer = machine.Timer(-1)  # virtual timer
