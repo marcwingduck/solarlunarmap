@@ -310,9 +310,9 @@ def clock():
     indices = [intersect_angle_frame(northclockwise2math(x)) for x in [a_h, a_m, a_s]]
 
     neo.fill((0, 0, 0, 0))
-    neo[indices[0]] = (200, 0, 0, 32)
-    neo[indices[1]] = (0, 200, 0, 32)
-    neo[indices[2]] = (0, 0, 200, 32)
+    neo[indices[0]] = (0, 0, 0, 128)
+    neo[indices[1]] = river
+    neo[indices[2]] = ambient
     neo.write()
 
 
