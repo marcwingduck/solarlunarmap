@@ -232,6 +232,7 @@ def set_time():
 
 
 def init():
+    machine.freq(160000000)
     connect()
     set_time()
 
