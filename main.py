@@ -5,12 +5,12 @@ import utime
 import math
 import neopixel
 
+# number of leds
+n = 180
+
 # numbers of leds in width and height
 cols = 54
 rows = 36
-
-# number of leds
-n = 180
 
 # width and height of the frame in cm
 width = 89.5
@@ -28,22 +28,18 @@ cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_
              'south': ((south_west + south_east) // 2, cols, (south_east, south_west)),
              'west': ((south_west + north_west) // 2, rows, (south_west, north_west))}
 
-off = (0, 0, 0, 0)
-red = (255, 0, 0, 0)
-orange = (255, 128, 0, 0)
-yellow = (255, 255, 0, 0)
-grass = (128, 255, 0, 0)
-green = (0, 255, 0, 0)
-mermaid = (0, 255, 128, 0)
-cyan = (0, 255, 255, 0)
-sky = (0, 128, 255, 0)
-blue = (0, 0, 255, 0)
-purple = (127, 0, 255, 0)
-magenta = (255, 0, 255, 0)
-rose = (255, 0, 127, 0)
-white = (0, 0, 0, 255)
+# default colors
+off = [0, 0, 0, 0]
+ambient = [0, 0, 0, 5]
+river = [0, 10, 15, 0]
 
-np = neopixel.NeoPixel(machine.Pin(12), n, bpp=4)
+# leds to fade to
+leds = [off for x in range(n)]
+
+# init neopixels
+neo = neopixel.NeoPixel(machine.Pin(12), n, bpp=4)
+neo.fill(off)
+neo.write()
 
 
 # ##############################################################################
@@ -53,12 +49,17 @@ def clamp(v, a, b):
     return max(min(v, b), a)
 
 
-def interpolate_rgbw(a, b, t):
-    return tuple([int(round(interpolate(x, y, t))) for x, y in zip(a, b)])
-
-
 def interpolate(a, b, t):
     return a + clamp(t, 0., 1.) * (b - a)
+
+
+def interpolate_rgbw(a, b, t):
+    # too slow :/ return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)]
+    # faster:
+    c = []
+    for i in range(4):
+        c.append(int(interpolate(a[i], b[i], t)))
+    return c
 
 
 def cross(a, b):
@@ -85,7 +86,7 @@ def northclockwise2math(a):
 # ##############################################################################
 
 
-def calc_solar_position(coords, date_time, debug=False):
+def calc_solar_position(coords, date_time):
     """
     :param coords: in degrees
     :param date_time: tuple (year, month, day, hour, minute, second, weekday, yearday)
@@ -151,20 +152,12 @@ def calc_solar_position(coords, date_time, debug=False):
     # move to north clockwise convention
     azim = wrap_to_pi(azim + math.pi)
 
-    if debug:
-        print('jd={}\tn={}\tL={}°'.format(jd, n, math.degrees(L)))
-        print('g={}°\tA={}°\te={}°'.format(math.degrees(g), math.degrees(A), math.degrees(epsilon)))
-        print('a={}°\td={}°'.format(math.degrees(alpha), math.degrees(delta)))
-        print('t0={}\ttgh={}\tt={}°'.format(t_0, theta_g_h, math.degrees(theta)))
-        print('a={}°\th={}°'.format(math.degrees(azim), math.degrees(elev)))
-
     return azim, elev
 
 
-def intersect_azimuth_with_frame(azim):
-    azim_math = northclockwise2math(azim)
-    azim_vec = cross((0., 0., 1.), (math.cos(azim_math), math.sin(azim_math), 1.))
-    result = get_border_intersections(width, height, azim_vec)
+def intersect_angle_frame(angle):
+    line = cross((0., 0., 1.), (math.cos(angle), math.sin(angle), 1.))
+    result = get_border_intersections(width, height, line)
     if result:
         side, (x, y) = result
 
@@ -243,20 +236,32 @@ def init():
     set_time()
 
 
+def apply(steps=10, sleep=1, pixels=None):
+    for i in range(steps):
+        t = (i + 1) / steps
+        if pixels:
+            for j in pixels:  # iterate set
+                neo[j] = interpolate_rgbw(neo[j], leds[j], t)
+        else:
+            for j in range(n):  # iterate all
+                neo[j] = interpolate_rgbw(neo[j], leds[j], t)
+        neo.write()
+        utime.sleep_ms(sleep)
+
+
 # ##############################################################################
 
 
 def uni(color):
-    np.fill(color)
-    np.write()
+    leds[:] = n * [color]
 
 
 def interpolate_side(cardinal, primary, secondary):
     set_area(cardinals[cardinal][0], cardinals[cardinal][1], primary, secondary)
-    np.write()
 
 
-def set_area(center, size, primary, secondary):
+def set_area(center, size, primary, secondary, direct=False):
+    changed_leds = set()
     half = size // 2
     start = center - half
     end = center + half + size % 2
@@ -264,25 +269,15 @@ def set_area(center, size, primary, secondary):
         d = 0 if size % 2 else 0.5
         t = math.fabs((center - i - d) / size)
         color = interpolate_rgbw(primary, secondary, t)
-        np[i % n] = color
-
-
-def paris_solaire():
-    paris()
-    solar((48.860536, 2.332237), utime.localtime())
-    np.write()
+        if direct:
+            neo[i % n] = color
+        else:
+            leds[i % n] = color
+        changed_leds.add(i % n)
+    return changed_leds
 
 
 # ##############################################################################
-
-
-def paris():
-    bg = (0, 0, 0, 5)
-    river = (0, 10, 15, 0)
-    np.fill(bg)
-    set_area(1, 5, river, bg)
-    set_area(65, 5, river, bg)
-    set_area(142, 3, river, bg)
 
 
 def sun(i):
@@ -293,32 +288,83 @@ def moon(i):
     set_area(i, 7, (0, 0, 200, 0), (0, 0, 0, 10))
 
 
-# ##############################################################################
-
-
-def ramp_up():
-    c = cardinals['south'][0]
-    size = (cols + 2 * rows)
-    d = (size + 1) % 2
-    for i in range(size // 2):
-        np[c - d - (i % n)] = (0, 1, 2, 3)
-        np[c + (i % n)] = (0, 1, 2, 3)
-        np.write()
-        utime.sleep_ms(10)
-    fade = 32
-    for i in range(fade):
-        color = interpolate_rgbw(off, (0, 10, 15, 20), i / fade)
-        set_area(cardinals['north'][0], cols, color, off)
-        np.write()
-        utime.sleep_ms(1)
-    utime.sleep_ms(50)
+def paris():
+    uni(ambient)
+    set_area(1, 5, river, ambient)
+    set_area(65, 5, river, ambient)
+    set_area(142, 3, river, ambient)
 
 
 def solar(lat_long_deg, utc_time):
     azim, elev = calc_solar_position(lat_long_deg, utc_time)
-    i = intersect_azimuth_with_frame(azim)
+    i = intersect_angle_frame(northclockwise2math(azim))
     if i is not None:
         sun(i) if elev > 0. else moon(i)
+
+
+def clock():
+    h, m, s = utime.localtime()[3:6]
+    a_h = ((h + 1) % 12 + m / 60.) / 12. * 2 * math.pi
+    a_m = m / 60. * 2 * math.pi
+    a_s = s / 60. * 2 * math.pi
+    indices = [intersect_angle_frame(northclockwise2math(x)) for x in [a_h, a_m, a_s]]
+
+    neo.fill((0, 0, 0, 0))
+    neo[indices[0]] = (200, 0, 0, 32)
+    neo[indices[1]] = (0, 200, 0, 32)
+    neo[indices[2]] = (0, 0, 200, 32)
+    neo.write()
+
+
+# ##############################################################################
+
+
+def ramp_up():
+    center = cardinals['south'][0]
+    size = (cols + 2 * rows)
+    d = (size + 1) % 2
+    ramp_color_1 = [0, 1, 2, 3]
+    ramp_color_2 = [0, 10, 15, 20]
+
+    affected = set_area(center, 12, ramp_color_2, off)
+    apply(6, 1, affected)
+    for i in range(size // 2):
+        neo[center - d - (i % n)] = ramp_color_1
+        neo[center + (i % n)] = ramp_color_1
+        neo.write()
+        utime.sleep_ms(10)
+    for i in range(16):
+        color = interpolate_rgbw(off, ramp_color_2, (i + 1) / 16)
+        set_area(cardinals['north'][0], cols, color, off, True)
+        neo.write()
+        utime.sleep_ms(1)
+    utime.sleep(1)
+
+
+def paris_solaire():
+    paris()
+    solar((48.860536, 2.332237), utime.localtime())
+    apply()
+
+
+def solar_demo():
+    paris()
+    apply()
+    for i in range(24):
+        for j in range(0, 60, 10):
+            paris()
+            solar((48.860536, 2.332237), (2019, 1, 27, i, j, 0, 6, 27))
+            apply(3)
+    paris()
+    apply()
+
+
+def time():
+    for i in range(20):
+        clock()
+        utime.sleep(1)
+    paris()
+    apply()
 
 
 # ##############################################################################
@@ -326,10 +372,10 @@ def solar(lat_long_deg, utc_time):
 
 if __name__ == '__main__':
     init()
-
-    uni(off)
     ramp_up()
+    paris()
+    apply()
     paris_solaire()
 
-    timer = machine.Timer(-1)  # virtual timer
+    timer = machine.Timer(-1)
     timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
