@@ -29,8 +29,7 @@ cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_
              'south': ((south_west + south_east) // 2, cols, (south_east, south_west)),
              'west': ((south_west + north_west) // 2, rows, (south_west, north_west))}
 
-# default colors
-# grb!!
+# default colors (grb!!)
 off = bytearray(4)
 ambient = bytearray((0, 0, 0, 5))
 river = bytearray((10, 0, 15, 0))
@@ -318,12 +317,14 @@ def ramp_up():
 
 # ##############################################################################
 
-def sun(i):
-    set_area(i, 7, (127, 255, 0, 0), (50, 255, 0, 0))
+def sun(i, f=1.):
+    g = int(interpolate(50, 180, f))
+    set_area(i, 7, (g, 255, 0, 0), (50, 255, 0, 0))
 
 
-def moon(i):
-    set_area(i, 7, (0, 0, 200, 0), (0, 0, 0, 10))
+def moon(i, f=1.):
+    color = interpolate_rgbw((64, 64, 200, 0), (10, 10, 20, 100), f)
+    set_area(i, 7, color, (0, 0, 0, 5))
 
 
 def paris():
@@ -337,7 +338,12 @@ def solar(lat_long_deg, utc_time):
     azim, elev = calc_solar_position(lat_long_deg, utc_time)
     i = intersect_angle_frame(northclockwise2math(azim))
     if i is not None:
-        sun(i) if elev > 0. else moon(i)
+        if elev > 0:
+            f = clamp(math.degrees(elev), 0., 30.) / 30.
+            sun(i, f)
+        else:
+            f = clamp(-math.degrees(elev), 0., 60.) / 60.
+            moon(i, f)
 
 
 def paris_solaire():
