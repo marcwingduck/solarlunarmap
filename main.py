@@ -1,3 +1,3 @@
-import solaire
+import paris
 
-solaire.run()
+paris.run()
