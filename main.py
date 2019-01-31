@@ -3,6 +3,7 @@ import network
 import ntptime
 import utime
 import math
+import esp
 import neopixel
 
 # number of leds
@@ -29,17 +30,24 @@ cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_
              'west': ((south_west + north_west) // 2, rows, (south_west, north_west))}
 
 # default colors
-off = [0, 0, 0, 0]
-ambient = [0, 0, 0, 5]
-river = [0, 10, 15, 0]
+# grb!!
+off = bytearray(4)
+ambient = bytearray((0, 0, 0, 5))
+river = bytearray((10, 0, 15, 0))
 
-# leds to fade to
-leds = [off for x in range(n)]
+# current leds
+leds_0 = bytearray(n * 4)
+
+# leds to be faded to
+leds_1 = bytearray(n * 4)
 
 # init neopixels
-neo = neopixel.NeoPixel(machine.Pin(12), n, bpp=4)
-neo.fill(off)
+pin = machine.Pin(12)
+neo = neopixel.NeoPixel(pin, n, bpp=4)
+neo.fill((0, 0, 0, 0))
 neo.write()
+
+timer = machine.Timer(-1)
 
 
 # ##############################################################################
@@ -54,8 +62,7 @@ def interpolate(a, b, t):
 
 
 def interpolate_rgbw(a, b, t):
-    # too slow :/ return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)]
-    # faster:
+    # return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)], faster:
     c = []
     for i in range(4):
         c.append(int(interpolate(a[i], b[i], t)))
@@ -174,7 +181,6 @@ def intersect_angle_frame(angle):
 
         # get led at length (0.6 leds per cm)
         i = int(round(cm * 0.6 - 1))
-
         # return sanity clamped value
         return clamp(i, 0, n - 1)
     return None
@@ -242,11 +248,12 @@ def apply(steps=10, sleep=1, pixels=None):
         t = (i + 1) / steps
         if pixels:
             for j in pixels:  # iterate set
-                neo[j] = interpolate_rgbw(neo[j], leds[j], t)
+                for k in range(j, j + 4):
+                    leds_0[k] = int(interpolate(leds_0[k], leds_1[k], t))
         else:
-            for j in range(n):  # iterate all
-                neo[j] = interpolate_rgbw(neo[j], leds[j], t)
-        neo.write()
+            for j in range(n * 4):  # iterate all
+                leds_0[j] = int(interpolate(leds_0[j], leds_1[j], t))
+        esp.neopixel_write(pin, leds_0, True)
         utime.sleep_ms(sleep)
 
 
@@ -254,11 +261,8 @@ def apply(steps=10, sleep=1, pixels=None):
 
 
 def uni(color):
-    leds[:] = n * [color]
-
-
-def interpolate_side(cardinal, primary, secondary):
-    set_area(cardinals[cardinal][0], cardinals[cardinal][1], primary, secondary)
+    for i in range(n):
+        leds_1[i * 4:i * 4 + 4] = bytearray(color)
 
 
 def set_area(center, size, primary, secondary, direct=False):
@@ -267,22 +271,55 @@ def set_area(center, size, primary, secondary, direct=False):
     start = center - half
     end = center + half + size % 2
     for i in range(start, end):
-        d = 0 if size % 2 else 0.5
+        d = 0. if size % 2 else 0.5
         t = math.fabs((center - i - d) / size)
         color = interpolate_rgbw(primary, secondary, t)
+        index = (i % n) * 4
         if direct:
-            neo[i % n] = color
+            leds_0[index:index + 4] = bytearray(color)
         else:
-            leds[i % n] = color
-        changed_leds.add(i % n)
+            leds_1[index:index + 4] = bytearray(color)
+        changed_leds.add(index)
     return changed_leds
 
 
 # ##############################################################################
 
 
+def ramp_up():
+    center = cardinals['south'][0]
+    size = (cols + 2 * rows)
+    d = (size + 1) % 2
+    ramp_color_1 = bytearray([0, 0, 0, 5])
+    ramp_color_2 = bytearray([0, 0, 0, 20])
+
+    global leds_0
+    leds_0 = bytearray(n * 4)
+    esp.neopixel_write(pin, leds_0, True)
+
+    set_area(center, cols // 3, ramp_color_2, off, True)
+    esp.neopixel_write(pin, leds_0, True)
+    utime.sleep_ms(200)
+    for i in range(size // 2):
+        i1 = (center - d - (i % n)) * 4
+        i2 = (center + (i % n)) * 4
+        leds_0[i1:i1 + 4] = ramp_color_1
+        leds_0[i2:i2 + 4] = ramp_color_1
+        esp.neopixel_write(pin, leds_0, True)
+        utime.sleep_ms(10)
+    for i in range(16):
+        color = interpolate_rgbw(off, ramp_color_2, (i + 1) / 16)
+        set_area(cardinals['north'][0], cols, color, off, True)
+        esp.neopixel_write(pin, leds_0, True)
+        utime.sleep_ms(1)
+    utime.sleep(1)
+    apply()
+
+
+# ##############################################################################
+
 def sun(i):
-    set_area(i, 7, (255, 127, 0, 0), (255, 50, 0, 0))
+    set_area(i, 7, (127, 255, 0, 0), (50, 255, 0, 0))
 
 
 def moon(i):
@@ -303,45 +340,6 @@ def solar(lat_long_deg, utc_time):
         sun(i) if elev > 0. else moon(i)
 
 
-def clock():
-    h, m, s = utime.localtime()[3:6]
-    a_h = ((h + 1) % 12 + m / 60.) / 12. * 2 * math.pi
-    a_m = m / 60. * 2 * math.pi
-    a_s = s / 60. * 2 * math.pi
-    indices = [intersect_angle_frame(northclockwise2math(x)) for x in [a_h, a_m, a_s]]
-
-    neo.fill((0, 0, 0, 0))
-    neo[indices[0]] = (0, 0, 0, 128)
-    neo[indices[1]] = river
-    neo[indices[2]] = ambient
-    neo.write()
-
-
-# ##############################################################################
-
-
-def ramp_up():
-    center = cardinals['south'][0]
-    size = (cols + 2 * rows)
-    d = (size + 1) % 2
-    ramp_color_1 = [0, 1, 2, 3]
-    ramp_color_2 = [0, 10, 15, 20]
-
-    affected = set_area(center, 12, ramp_color_2, off)
-    apply(6, 1, affected)
-    for i in range(size // 2):
-        neo[center - d - (i % n)] = ramp_color_1
-        neo[center + (i % n)] = ramp_color_1
-        neo.write()
-        utime.sleep_ms(10)
-    for i in range(16):
-        color = interpolate_rgbw(off, ramp_color_2, (i + 1) / 16)
-        set_area(cardinals['north'][0], cols, color, off, True)
-        neo.write()
-        utime.sleep_ms(1)
-    utime.sleep(1)
-
-
 def paris_solaire():
     paris()
     solar((48.860536, 2.332237), utime.localtime())
@@ -349,6 +347,7 @@ def paris_solaire():
 
 
 def solar_demo():
+    timer.deinit()
     paris()
     apply()
     for i in range(24):
@@ -358,25 +357,42 @@ def solar_demo():
             apply(3)
     paris()
     apply()
-
-
-def time():
-    for i in range(20):
-        clock()
-        utime.sleep(1)
-    paris()
-    apply()
+    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 # ##############################################################################
 
 
-if __name__ == '__main__':
-    init()
-    ramp_up()
-    paris()
-    apply()
-    paris_solaire()
+def clock():
+    h, m, s = utime.localtime()[3:6]
+    a_h = ((h + 1) % 12 + m / 60.) / 12. * 2 * math.pi
+    a_m = m / 60. * 2 * math.pi
+    a_s = s / 60. * 2 * math.pi
+    indices = [intersect_angle_frame(northclockwise2math(x)) * 4 for x in [a_h, a_m, a_s]]
 
-    timer = machine.Timer(-1)
+    global leds_0
+    leds_0 = bytearray(n * 4)
+    leds_0[indices[2]:indices[2] + 4] = ambient
+    leds_0[indices[1]:indices[1] + 4] = river
+    leds_0[indices[0]:indices[0] + 4] = bytearray((0, 0, 0, 128))
+    esp.neopixel_write(pin, leds_0, True)
+
+
+def time():
+    timer.deinit()
+    for i in range(20):
+        clock()
+        utime.sleep(1)
+    apply()
+    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+
+
+# ##############################################################################
+
+# if __name__ == '__main__':
+def run():
+    init()
+    paris()
+    ramp_up()
+    paris_solaire()
     timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
