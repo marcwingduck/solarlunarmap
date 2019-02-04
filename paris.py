@@ -4,7 +4,6 @@ import ntptime
 import utime
 import math
 import esp
-import neopixel
 
 # number of leds
 n = 180
@@ -30,9 +29,9 @@ cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_
              'west': ((south_west + north_west) // 2, rows, (south_west, north_west))}
 
 # default colors (grb!!)
-off = bytearray(4)
-ambient = bytearray((0, 0, 0, 5))
-river = bytearray((10, 0, 15, 0))
+color_off = bytearray(4)
+color_ambient = bytearray((0, 0, 0, 5))
+color_river = bytearray((10, 0, 15, 0))
 
 # current leds
 leds_0 = bytearray(n * 4)
@@ -41,11 +40,10 @@ leds_0 = bytearray(n * 4)
 leds_1 = bytearray(n * 4)
 
 # init neopixels
-pin = machine.Pin(12)
-neo = neopixel.NeoPixel(pin, n, bpp=4)
-neo.fill((0, 0, 0, 0))
-neo.write()
+pin = machine.Pin(12, machine.Pin.OUT)
+esp.neopixel_write(pin, leds_0, True)
 
+# update timer
 timer = machine.Timer(-1)
 
 
@@ -258,6 +256,11 @@ def apply(steps=10, sleep=1, pixels=None):
 
 # ##############################################################################
 
+def off():
+    global leds_0
+    leds_0 = bytearray(n * 4)
+    esp.neopixel_write(pin, leds_0, True)
+
 
 def uni(color):
     for i in range(n):
@@ -282,6 +285,17 @@ def set_area(center, size, primary, secondary, direct=False):
     return changed_leds
 
 
+def set_sides(north, east, south, west):
+    for i in range(*cardinals['north'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(north)
+    for i in range(*cardinals['east'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(east)
+    for i in range(*cardinals['south'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(south)
+    for i in range(*cardinals['west'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(west)
+
+
 # ##############################################################################
 
 
@@ -292,11 +306,9 @@ def ramp_up():
     ramp_color_1 = bytearray([0, 0, 0, 5])
     ramp_color_2 = bytearray([0, 0, 0, 20])
 
-    global leds_0
-    leds_0 = bytearray(n * 4)
-    esp.neopixel_write(pin, leds_0, True)
+    off()
 
-    set_area(center, cols // 3, ramp_color_2, off, True)
+    set_area(center, cols // 3, ramp_color_2, color_off, True)
     esp.neopixel_write(pin, leds_0, True)
     utime.sleep_ms(200)
     for i in range(size // 2):
@@ -307,8 +319,8 @@ def ramp_up():
         esp.neopixel_write(pin, leds_0, True)
         utime.sleep_ms(10)
     for i in range(16):
-        color = interpolate_rgbw(off, ramp_color_2, (i + 1) / 16)
-        set_area(cardinals['north'][0], cols, color, off, True)
+        color = interpolate_rgbw(color_off, ramp_color_2, (i + 1) / 16)
+        set_area(cardinals['north'][0], cols, color, color_off, True)
         esp.neopixel_write(pin, leds_0, True)
         utime.sleep_ms(1)
     utime.sleep(1)
@@ -316,6 +328,72 @@ def ramp_up():
 
 
 # ##############################################################################
+
+
+def neon():
+    timer.deinit()
+    set_sides((255, 0, 255, 0), (255, 255, 0, 0), (0, 255, 255, 0), (255, 0, 0, 0))
+    esp.neopixel_write(pin, leds_0, True)
+    utime.sleep_ms(2000)
+    apply()
+    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+
+
+def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
+    timer.deinit()
+    start, end = cardinals[cardinal][2]
+    size = end - start
+    for i in range(times * size):
+        if not keep_lit:
+            for j in range(size):
+                index = (start + j) * 4
+                leds_0[index:index + 4] = bytearray(primary)
+        if (i // size) % 2 == 0:
+            index = (start + i % size) * 4
+            leds_0[index:index + 4] = bytearray(secondary)
+        else:
+            index = (end - 1 - (i % size)) * 4
+            leds_0[index:index + 4] = bytearray(tertiary)
+        esp.neopixel_write(pin, leds_0, True)
+        utime.sleep_ms(1)
+    off()
+    utime.sleep_ms(500)
+    apply()
+    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+
+
+def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
+    global leds_0
+    timer.deinit()
+    for i in range(n * 4 * n_cycles):
+        leds_0 = bytearray(n * 4)
+        index = i % (n * 4)
+        leds_0[index] = brightness
+        esp.neopixel_write(pin, leds_0, True)
+        utime.sleep_ms(timeout_ms)
+    off()
+    utime.sleep_ms(500)
+    apply()
+    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+
+
+def cycle_color(color, n_cycles=1, timeout_ms=1):
+    global leds_0
+    timer.deinit()
+    for i in range(n * n_cycles):
+        leds_0 = bytearray(n * 4)
+        index = (i % n) * 4
+        leds_0[index:index + 4] = bytearray(color)
+        esp.neopixel_write(pin, leds_0, True)
+        utime.sleep_ms(timeout_ms)
+    off()
+    utime.sleep_ms(500)
+    apply()
+    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+
+
+# ##############################################################################
+
 
 def sun(i, f=1.):
     g = int(interpolate(50, 180, f))
@@ -328,10 +406,10 @@ def moon(i, f=1.):
 
 
 def paris():
-    uni(ambient)
-    set_area(1, 5, river, ambient)
-    set_area(65, 5, river, ambient)
-    set_area(142, 3, river, ambient)
+    uni(color_ambient)
+    set_area(1, 5, color_river, color_ambient)
+    set_area(65, 5, color_river, color_ambient)
+    set_area(142, 3, color_river, color_ambient)
 
 
 def solar(lat_long_deg, utc_time):
@@ -378,8 +456,8 @@ def clock():
 
     global leds_0
     leds_0 = bytearray(n * 4)
-    leds_0[indices[2]:indices[2] + 4] = ambient
-    leds_0[indices[1]:indices[1] + 4] = river
+    leds_0[indices[2]:indices[2] + 4] = color_ambient
+    leds_0[indices[1]:indices[1] + 4] = color_river
     leds_0[indices[0]:indices[0] + 4] = bytearray((0, 0, 0, 128))
     esp.neopixel_write(pin, leds_0, True)
 
