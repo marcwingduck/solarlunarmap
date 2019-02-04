@@ -462,9 +462,9 @@ def clock():
     esp.neopixel_write(pin, leds_0, True)
 
 
-def time():
+def time(seconds=15):
     timer.deinit()
-    for i in range(20):
+    for i in range(seconds):
         clock()
         utime.sleep(1)
     apply()
