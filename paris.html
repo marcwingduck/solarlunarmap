@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>ESP8266 MicroPython Smart Solar Map</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2">
+                <div class="jumbotron">
+                    <h1>Paris Solaire</h1>
+                    <p class="lead">Send commands to your Solar Map of Paris.</p>
+                    <span class="label label-info" id="status"></span>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-4 col-lg-offset-4">
+                <form>
+                    <div class="form-group">
+                        <label for="boardURL">Board URL</label>
+                        <input type="text" class="form-control" id="boardURL" value="ws://192.168.0.221:8266/">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" class="form-control" id="password" placeholder="Password">
+                    </div>
+                </form>
+                <button type="button" class="btn btn-primary" id="open">Open</button>
+                <button class="btn btn-primary" type="button" id="close">Close</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-3"><label for="primary">Primary</label><input type="color" class="form-control" id="primary" value="#ff0000"></div>
+            <div class="col-md-3"><label for="secondary">Secondary</label><input type="color" class="form-control" id="secondary" value="#00ff00"></div>
+            <div class="col-md-3"><label for="tertiary">Tertiary</label><input type="color" class="form-control" id="tertiary" value="#0000ff"></div>
+            <div class="col-md-3"><label for="quaternary">Quaternary</label><input type="color" class="form-control" id="quaternary" value="#00ffff"></div>
+        </div>
+        <div class="row">
+            <div class="col-lg-4 col-lg-offset-4">
+                <form>
+                    <div class="form-group">
+                        <label for="formControlRange">Brightness</label>
+                        <input type="range" class="form-control-range" id="formControlRange" min=0 max=255 value=0>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-4 col-lg-offset-4">
+                <div id="selector" class="btn-group" role="group">
+                    <button class="btn btn-default" type="button">time()</button>
+                    <button class="btn btn-default" type="button">neon()</button>
+                    <button class="btn btn-default" type="button">bounce('north', (primary), (secondary), (tertiary), True, 10)</button>
+                    <button class="btn btn-default" type="button">cycle_channels()</button>
+                    <button class="btn btn-default" type="button">cycle_color((primary))</button>
+                    <button class="btn btn-default" type="button">set_sides((primary),(secondary),(tertiary),(quaternary))</button>
+                    <button class="btn btn-default" type="button">solar_demo()</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script>
+var ws = null;
+
+function webreplConnect(url, password, onConnect, onError) {
+    ws = new WebSocket(url);
+    ws.onopen = function() {
+        ws.onmessage = function(e) {
+
+        }
+        ws.send(password + '\r\n');
+        ws.send('\x03');
+        updateStatus(ws);
+    };
+    ws.onclose = function(e) {
+        updateStatus(ws);
+    }
+    ws.onerror = function(e) {
+        updateStatus(ws);
+    };
+}
+
+function hex2rgb(hex, w) {
+    hex = hex.slice(1);
+    var bigint = parseInt(hex, 16);
+    var r = (bigint >> 16) & 255;
+    var g = (bigint >> 8) & 255;
+    var b = bigint & 255;
+    return [g, r, b, w].join();
+}
+
+function updateStatus() {
+    if (!ws) {
+        $('#status').text("null");
+    } else if (ws.readyState == ws.OPEN) {
+        $('#status').text("Open");
+    } else if (ws.readyState == ws.CLOSED) {
+        $('#status').text("Closed");
+    } else {
+        $('#status').text("¯\\_(ツ)_/¯");
+    }
+}
+
+$(document).ready(function() {
+    updateStatus(ws);
+
+    $('#open').click(function() {
+        var boardURL = $('#boardURL').val();
+        var password = $('#password').val();
+        webreplConnect(boardURL, password);
+    });
+
+    $('#close').click(function() {
+        if (ws) {
+            ws.close();
+        }
+    });
+
+    $('#selector button').click(function() {
+        var w = parseInt($('#formControlRange').val());
+        var c1 = hex2rgb($('#primary').val(), w);
+        var c2 = hex2rgb($('#secondary').val(), w);
+        var c3 = hex2rgb($('#tertiary').val(), w);
+        var c4 = hex2rgb($('#quaternary').val(), w);
+        fn = $(this).text().replace('primary', c1).replace('secondary', c2).replace('tertiary', c3).replace('quaternary', c4);
+        if (ws) {
+            ws.send('paris.' + fn + '\r\n');
+        }
+    });
+});
+</script>
+
+</html>
