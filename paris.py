@@ -285,17 +285,6 @@ def set_area(center, size, primary, secondary, direct=False):
     return changed_leds
 
 
-def set_sides(north, east, south, west):
-    for i in range(*cardinals['north'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(north)
-    for i in range(*cardinals['east'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(east)
-    for i in range(*cardinals['south'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(south)
-    for i in range(*cardinals['west'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(west)
-
-
 # ##############################################################################
 
 
@@ -330,17 +319,29 @@ def ramp_up():
 # ##############################################################################
 
 
-def neon():
+def set_sides(north, east, south, west):
     timer.deinit()
-    set_sides((255, 0, 255, 0), (255, 255, 0, 0), (0, 255, 255, 0), (255, 0, 0, 0))
+    for i in range(*cardinals['north'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(north)
+    for i in range(*cardinals['east'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(east)
+    for i in range(*cardinals['south'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(south)
+    for i in range(*cardinals['west'][2]):
+        leds_0[i * 4:i * 4 + 4] = bytearray(west)
     esp.neopixel_write(pin, leds_0, True)
-    utime.sleep_ms(2000)
+    utime.sleep_ms(5000)
     apply()
     timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
+def neon():
+    set_sides((255, 0, 255, 0), (255, 255, 0, 0), (0, 255, 255, 0), (255, 0, 0, 0))
+
+
 def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
     timer.deinit()
+    off()
     start, end = cardinals[cardinal][2]
     size = end - start
     for i in range(times * size):
