@@ -1,9 +1,7 @@
-import machine
-import network
-import ntptime
+from machine import Pin, Timer
 import utime
 import math
-import esp
+from esp import neopixel_write
 
 # number of leds
 n = 180
@@ -40,11 +38,11 @@ leds_0 = bytearray(n * 4)
 leds_1 = bytearray(n * 4)
 
 # init neopixels
-pin = machine.Pin(12, machine.Pin.OUT)
-esp.neopixel_write(pin, leds_0, True)
+pin = Pin(12, Pin.OUT)
+neopixel_write(pin, leds_0, True)
 
 # update timer
-timer = machine.Timer(-1)
+timer = Timer(-1)
 
 
 # ##############################################################################
@@ -213,33 +211,6 @@ def get_border_intersections(width, height, axis):
 # ##############################################################################
 
 
-def connect():
-    wlan = network.WLAN(network.STA_IF)
-    if not wlan.isconnected():
-        print('connecting to network...')
-        wlan.active(True)
-        wlan.connect('mywifi', 'mywifikey')
-        while not wlan.isconnected():
-            pass
-    print('network config:', wlan.ifconfig())
-
-
-def set_time():
-    while True:
-        try:
-            ntptime.settime()
-            break
-        except OSError:
-            utime.sleep_ms(10)
-    print(utime.localtime())
-
-
-def init():
-    machine.freq(160000000)
-    connect()
-    set_time()
-
-
 def apply(steps=10, sleep=1, pixels=None):
     for i in range(steps):
         t = (i + 1) / steps
@@ -250,16 +221,17 @@ def apply(steps=10, sleep=1, pixels=None):
         else:
             for j in range(n * 4):  # iterate all
                 leds_0[j] = int(interpolate(leds_0[j], leds_1[j], t))
-        esp.neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0, True)
         utime.sleep_ms(sleep)
 
 
 # ##############################################################################
 
+
 def off():
     global leds_0
     leds_0 = bytearray(n * 4)
-    esp.neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0, True)
 
 
 def uni(color):
@@ -298,19 +270,19 @@ def ramp_up():
     off()
 
     set_area(center, cols // 3, ramp_color_2, color_off, True)
-    esp.neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0, True)
     utime.sleep_ms(200)
     for i in range(size // 2):
         i1 = (center - d - (i % n)) * 4
         i2 = (center + (i % n)) * 4
         leds_0[i1:i1 + 4] = ramp_color_1
         leds_0[i2:i2 + 4] = ramp_color_1
-        esp.neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0, True)
         utime.sleep_ms(10)
     for i in range(16):
         color = interpolate_rgbw(color_off, ramp_color_2, (i + 1) / 16)
         set_area(cardinals['north'][0], cols, color, color_off, True)
-        esp.neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0, True)
         utime.sleep_ms(1)
     utime.sleep(1)
     apply()
@@ -329,10 +301,10 @@ def set_sides(north, east, south, west):
         leds_0[i * 4:i * 4 + 4] = bytearray(south)
     for i in range(*cardinals['west'][2]):
         leds_0[i * 4:i * 4 + 4] = bytearray(west)
-    esp.neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0, True)
     utime.sleep_ms(5000)
     apply()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 def neon():
@@ -355,12 +327,12 @@ def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
         else:
             index = (end - 1 - (i % size)) * 4
             leds_0[index:index + 4] = bytearray(tertiary)
-        esp.neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0, True)
         utime.sleep_ms(1)
     off()
     utime.sleep_ms(500)
     apply()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
@@ -370,12 +342,12 @@ def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
         leds_0 = bytearray(n * 4)
         index = i % (n * 4)
         leds_0[index] = brightness
-        esp.neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0, True)
         utime.sleep_ms(timeout_ms)
     off()
     utime.sleep_ms(500)
     apply()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 def cycle_color(color, n_cycles=1, timeout_ms=1):
@@ -385,12 +357,12 @@ def cycle_color(color, n_cycles=1, timeout_ms=1):
         leds_0 = bytearray(n * 4)
         index = (i % n) * 4
         leds_0[index:index + 4] = bytearray(color)
-        esp.neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0, True)
         utime.sleep_ms(timeout_ms)
     off()
     utime.sleep_ms(500)
     apply()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 # ##############################################################################
@@ -442,7 +414,7 @@ def solar_demo():
             apply(3)
     paris()
     apply()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 # ##############################################################################
@@ -460,7 +432,7 @@ def clock():
     leds_0[indices[2]:indices[2] + 4] = color_ambient
     leds_0[indices[1]:indices[1] + 4] = color_river
     leds_0[indices[0]:indices[0] + 4] = bytearray((0, 0, 0, 128))
-    esp.neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0, True)
 
 
 def time(seconds=15):
@@ -469,15 +441,14 @@ def time(seconds=15):
         clock()
         utime.sleep(1)
     apply()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
 
 
 # ##############################################################################
 
 
 def run():
-    init()
     paris()
     ramp_up()
     paris_solaire()
-    timer.init(period=60000, mode=machine.Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
