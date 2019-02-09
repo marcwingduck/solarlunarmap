@@ -13,7 +13,7 @@ def connect():
         wlan.active(True)
         wlan.connect('mywifi', 'mywifikey')
         while not wlan.isconnected():
-            pass
+            utime.sleep_ms(10)
     print('network config:', wlan.ifconfig())
 
 
@@ -24,7 +24,7 @@ def set_time():
             break
         except OSError:
             utime.sleep_ms(10)
-    print(utime.localtime())
+    print('time:', utime.localtime())
 
 
 def init():

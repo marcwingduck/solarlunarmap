@@ -2,6 +2,8 @@ from machine import Pin, Timer
 import utime
 import math
 from esp import neopixel_write
+from common import northclockwise2math
+import solun
 
 # number of leds
 n = 180
@@ -68,93 +70,7 @@ def cross(a, b):
     return a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]
 
 
-def wrap_to_pi(a):
-    return math.atan2(math.sin(a), math.cos(a))
-
-
-def wrap_to_0_2pi(a):
-    return math.atan2(math.sin(a - math.pi), math.cos(a - math.pi)) + math.pi
-
-
-def northclockwise2math(a):
-    # clockwise to counter clockwise
-    a_pi = 2. * math.pi - a
-    # add 90 deg offset from north to west
-    a_pi = a_pi + math.pi / 2.
-    # wrap to -pi,pi
-    return wrap_to_pi(a_pi)
-
-
 # ##############################################################################
-
-
-def calc_solar_position(coords, date_time):
-    """
-    :param coords: in degrees
-    :param date_time: tuple (year, month, day, hour, minute, second, weekday, yearday)
-    :param debug: print variables if True
-    :return: (azimuth, elevation) in degrees using north clockwise convention
-    """
-
-    # convert coords to radians
-    rlat, rlong = math.radians(coords[0]), math.radians(coords[1])
-
-    # unpack date time
-    year, month, day, hour, minute, second, weekday, yearday = date_time
-
-    # julian day
-    jd = (1461 * (year + 4800 + (month - 14) // 12)) // 4 + (367 * (month - 2 - 12 * ((month - 14) // 12))) // 12 - (3 * ((year + 4900 + (month - 14) // 12) // 100)) // 4 + day - 32075
-
-    # number of days since Jan 1st 2000, 12 UTC
-    n = jd - 2451545.
-
-    # mean ecliptical length
-    L = math.radians(280.460) + math.radians(0.9856474) * n
-    L = wrap_to_0_2pi(L)
-
-    # mean anomaly
-    g = math.radians(357.528) + math.radians(0.9856003) * n
-    g = wrap_to_0_2pi(g)
-
-    # ecliptical length
-    A = L + math.radians(1.915) * math.sin(g) + math.radians(0.01997) * math.sin(2. * g)
-    A = wrap_to_0_2pi(A)
-
-    # ecliptic inclination
-    epsilon = math.radians(23.439) - math.radians(0.0000004) * n
-    epsilon = wrap_to_0_2pi(epsilon)
-
-    # right ascension
-    # alpha = math.atan2(epsilon, A)
-    a1 = math.atan(math.cos(epsilon) * math.tan(A))
-    a2 = math.atan(math.cos(epsilon) * math.tan(A)) + math.pi
-    alpha = a1 if math.cos(A) > 0 else a2
-    alpha = wrap_to_0_2pi(alpha)
-
-    # declination
-    delta = math.asin(math.sin(epsilon) * math.sin(A))
-    delta = wrap_to_0_2pi(delta)
-
-    # julian centery since 2000
-    t_0 = n / 36525.
-
-    # middle sidereal time in hours
-    theta_g_h = 6.697376 + 2400.05134 * t_0 + 1.002738 * (hour + minute / 60.)
-    theta_g_h = theta_g_h % 24
-
-    # Greenwich hour angle at vernal equinox (Frühlingspunkt)
-    theta_g = theta_g_h * math.radians(15.)
-    theta = theta_g + rlong
-    tau = theta - alpha
-
-    # finally calculate azimuth and elecvation
-    azim = math.atan2(math.sin(tau), (math.cos(tau) * math.sin(rlat) - math.tan(delta) * math.cos(rlat)))
-    elev = math.asin(math.cos(delta) * math.cos(tau) * math.cos(rlat) + math.sin(delta) * math.sin(rlat))
-
-    # move to north clockwise convention
-    azim = wrap_to_pi(azim + math.pi)
-
-    return azim, elev
 
 
 def intersect_angle_frame(angle):
@@ -212,6 +128,11 @@ def get_border_intersections(width, height, axis):
 
 
 def apply(steps=10, sleep=1, pixels=None):
+    if steps <= 1:
+        neopixel_write(pin, leds_1, True)
+        utime.sleep_ms(sleep)
+        return
+
     for i in range(steps):
         t = (i + 1) / steps
         if pixels:
@@ -304,7 +225,7 @@ def set_sides(north, east, south, west):
     neopixel_write(pin, leds_0, True)
     utime.sleep_ms(5000)
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 def neon():
@@ -332,7 +253,7 @@ def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
     off()
     utime.sleep_ms(500)
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
@@ -347,7 +268,7 @@ def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
     off()
     utime.sleep_ms(500)
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 def cycle_color(color, n_cycles=1, timeout_ms=1):
@@ -362,7 +283,7 @@ def cycle_color(color, n_cycles=1, timeout_ms=1):
     off()
     utime.sleep_ms(500)
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 # ##############################################################################
@@ -385,36 +306,45 @@ def paris():
     set_area(142, 3, color_river, color_ambient)
 
 
-def solar(lat_long_deg, utc_time):
-    azim, elev = calc_solar_position(lat_long_deg, utc_time)
-    i = intersect_angle_frame(northclockwise2math(azim))
-    if i is not None:
-        if elev > 0:
-            f = clamp(math.degrees(elev), 0., 30.) / 30.
-            sun(i, f)
-        else:
-            f = clamp(-math.degrees(elev), 0., 60.) / 60.
-            moon(i, f)
+def calc_solun_positions(lat_long_deg, utc_time):
+    lunar_azim, lunar_elev = solun.calc_lunar_position(lat_long_deg, utc_time)
+    lunar_intersection = intersect_angle_frame(northclockwise2math(lunar_azim))
+    if lunar_intersection is not None:
+        if lunar_elev > 0.:
+            f = clamp(math.degrees(lunar_elev), 0., 60.) / 60.
+            moon(lunar_intersection, f)
+    solar_azim, solar_elev = solun.calc_solar_position(lat_long_deg, utc_time)
+    solar_intersection = intersect_angle_frame(northclockwise2math(solar_azim))
+    if solar_intersection is not None:
+        if solar_elev > 0.:
+            f = clamp(math.degrees(solar_elev), 0., 30.) / 30.
+            sun(solar_intersection, f)
 
 
-def paris_solaire():
+def paris_solun():
     paris()
-    solar((48.860536, 2.332237), utime.localtime())
+    calc_solun_positions((48.860536, 2.332237), utime.localtime())
     apply()
 
 
-def solar_demo():
+def solun_demo():
     timer.deinit()
     paris()
     apply()
-    for i in range(24):
-        for j in range(0, 60, 10):
+    for h in range(24):
+        for m in range(0, 60, 10):
             paris()
-            solar((48.860536, 2.332237), (2019, 1, 27, i, j, 0, 6, 27))
-            apply(3)
+            # solar/lunar
+            calc_solun_positions((48.860536, 2.332237), (2019, 1, 27, h, m, 0, 6, 27))
+            # hour
+            angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
+            index = intersect_angle_frame(northclockwise2math(angle))
+            leds_1[index * 4:index * 4 + 4] = bytearray([0, 255, 0, 0])
+
+            apply(0)
     paris()
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 # ##############################################################################
@@ -422,9 +352,9 @@ def solar_demo():
 
 def clock():
     h, m, s = utime.localtime()[3:6]
-    a_h = ((h + 1) % 12 + m / 60.) / 12. * 2 * math.pi
-    a_m = m / 60. * 2 * math.pi
-    a_s = s / 60. * 2 * math.pi
+    a_h = ((h + 1) % 12 + m / 60.) / 12. * 2. * math.pi
+    a_m = m / 60. * 2. * math.pi
+    a_s = s / 60. * 2. * math.pi
     indices = [intersect_angle_frame(northclockwise2math(x)) * 4 for x in [a_h, a_m, a_s]]
 
     global leds_0
@@ -441,7 +371,7 @@ def time(seconds=15):
         clock()
         utime.sleep(1)
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 # ##############################################################################
@@ -450,5 +380,5 @@ def time(seconds=15):
 def run():
     paris()
     ramp_up()
-    paris_solaire()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solaire())
+    paris_solun()
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
