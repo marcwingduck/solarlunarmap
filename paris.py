@@ -341,7 +341,7 @@ def solun_demo():
             index = intersect_angle_frame(northclockwise2math(angle))
             leds_1[index * 4:index * 4 + 4] = bytearray([0, 255, 0, 0])
 
-            apply(0)
+            apply(0, 1000)
     paris()
     apply()
     timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
