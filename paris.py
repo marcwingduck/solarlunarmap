@@ -331,17 +331,17 @@ def solun_demo():
     timer.deinit()
     paris()
     apply()
+    year, month, day, hour, minute, second, weekday, yearday = utime.localtime()
     for h in range(24):
         for m in range(0, 60, 10):
             paris()
             # solar/lunar
-            calc_solun_positions((48.860536, 2.332237), (2019, 1, 27, h, m, 0, 6, 27))
+            calc_solun_positions((48.860536, 2.332237), (year, month, day, h, m, 0, weekday, yearday))
             # hour
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
             index = intersect_angle_frame(northclockwise2math(angle))
             leds_1[index * 4:index * 4 + 4] = bytearray([0, 255, 0, 0])
-
-            apply(0, 1000)
+            apply(3, 300)
     paris()
     apply()
     timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
