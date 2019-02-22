@@ -2,7 +2,7 @@ from machine import Pin, Timer
 import utime
 import math
 from esp import neopixel_write
-from common import northclockwise2math
+from common import sign, northclockwise2math
 import solun
 
 # number of leds
@@ -55,7 +55,11 @@ def clamp(v, a, b):
 
 
 def interpolate(a, b, t):
-    return a + clamp(t, 0., 1.) * (b - a)
+    if t < 0. + 1e-3:
+        return a
+    if t > 1. - 1e-3:
+        return b
+    return a + t * (b - a)
 
 
 def interpolate_rgbw(a, b, t):
@@ -149,9 +153,11 @@ def apply(steps=10, sleep=1, pixels=None):
 # ##############################################################################
 
 
-def off():
-    global leds_0
+def off(all=False):
+    global leds_0, leds_1
     leds_0 = bytearray(n * 4)
+    if all:
+        leds_1 = bytearray(n * 4)
     neopixel_write(pin, leds_0, True)
 
 
@@ -162,18 +168,19 @@ def uni(color):
 
 def set_area(center, size, primary, secondary, direct=False):
     changed_leds = set()
-    half = size // 2
+    half = int(size / 2)
     start = center - half
     end = center + half + size % 2
     for i in range(start, end):
         d = 0. if size % 2 else 0.5
-        t = math.fabs((center - i - d) / size)
-        color = interpolate_rgbw(primary, secondary, t)
-        index = (i % n) * 4
+        x = center - i - d
+        t = math.fabs((x - sign(x) * d) / (half - (size + 1) % 2))
+        color = interpolate_rgbw(primary, secondary, 1 - (t * t))
+        index = i % n
         if direct:
-            leds_0[index:index + 4] = bytearray(color)
+            leds_0[index * 4:index * 4 + 4] = bytearray(color)
         else:
-            leds_1[index:index + 4] = bytearray(color)
+            leds_1[index * 4:index * 4 + 4] = bytearray(color)
         changed_leds.add(index)
     return changed_leds
 
@@ -185,8 +192,8 @@ def ramp_up():
     center = cardinals['south'][0]
     size = (cols + 2 * rows)
     d = (size + 1) % 2
-    ramp_color_1 = bytearray([0, 0, 0, 5])
-    ramp_color_2 = bytearray([0, 0, 0, 20])
+    ramp_color_1 = bytearray((0, 0, 0, 5))
+    ramp_color_2 = bytearray((0, 0, 0, 20))
 
     off()
 
@@ -213,7 +220,6 @@ def ramp_up():
 
 
 def set_sides(north, east, south, west):
-    timer.deinit()
     for i in range(*cardinals['north'][2]):
         leds_0[i * 4:i * 4 + 4] = bytearray(north)
     for i in range(*cardinals['east'][2]):
@@ -223,9 +229,6 @@ def set_sides(north, east, south, west):
     for i in range(*cardinals['west'][2]):
         leds_0[i * 4:i * 4 + 4] = bytearray(west)
     neopixel_write(pin, leds_0, True)
-    utime.sleep_ms(5000)
-    apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 def neon():
@@ -233,7 +236,6 @@ def neon():
 
 
 def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
-    timer.deinit()
     off()
     start, end = cardinals[cardinal][2]
     size = end - start
@@ -251,14 +253,10 @@ def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
         neopixel_write(pin, leds_0, True)
         utime.sleep_ms(1)
     off()
-    utime.sleep_ms(500)
-    apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
     global leds_0
-    timer.deinit()
     for i in range(n * 4 * n_cycles):
         leds_0 = bytearray(n * 4)
         index = i % (n * 4)
@@ -266,14 +264,10 @@ def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
         neopixel_write(pin, leds_0, True)
         utime.sleep_ms(timeout_ms)
     off()
-    utime.sleep_ms(500)
-    apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 def cycle_color(color, n_cycles=1, timeout_ms=1):
     global leds_0
-    timer.deinit()
     for i in range(n * n_cycles):
         leds_0 = bytearray(n * 4)
         index = (i % n) * 4
@@ -281,9 +275,6 @@ def cycle_color(color, n_cycles=1, timeout_ms=1):
         neopixel_write(pin, leds_0, True)
         utime.sleep_ms(timeout_ms)
     off()
-    utime.sleep_ms(500)
-    apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 # ##############################################################################
@@ -291,7 +282,7 @@ def cycle_color(color, n_cycles=1, timeout_ms=1):
 
 def sun(i, f=1.):
     g = int(interpolate(50, 180, f))
-    set_area(i, 7, (g, 255, 0, 0), (50, 255, 0, 0))
+    set_area(i, 6, (g, 255, 0, 0), (50, 255, 0, 0))
 
 
 def moon(i, f=1.):
@@ -307,12 +298,14 @@ def paris():
 
 
 def calc_solun_positions(lat_long_deg, utc_time):
+    # moon
     lunar_azim, lunar_elev = solun.calc_lunar_position(lat_long_deg, utc_time)
     lunar_intersection = intersect_angle_frame(northclockwise2math(lunar_azim))
     if lunar_intersection is not None:
         if lunar_elev > 0.:
             f = clamp(math.degrees(lunar_elev), 0., 60.) / 60.
             moon(lunar_intersection, f)
+    # sun
     solar_azim, solar_elev = solun.calc_solar_position(lat_long_deg, utc_time)
     solar_intersection = intersect_angle_frame(northclockwise2math(solar_azim))
     if solar_intersection is not None:
@@ -328,7 +321,6 @@ def paris_solun():
 
 
 def solun_demo():
-    timer.deinit()
     paris()
     apply()
     year, month, day, hour, minute, second, weekday, yearday = utime.localtime()
@@ -340,11 +332,10 @@ def solun_demo():
             # hour
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
             index = intersect_angle_frame(northclockwise2math(angle))
-            leds_1[index * 4:index * 4 + 4] = bytearray([0, 255, 0, 0])
-            apply(3, 300)
+            leds_1[index * 4:index * 4 + 4] = bytearray((158, 81, 188, 0))
+            apply(2, 10)
     paris()
     apply()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 
 
 # ##############################################################################
@@ -365,13 +356,20 @@ def clock():
     neopixel_write(pin, leds_0, True)
 
 
-def time(seconds=15):
-    timer.deinit()
-    for i in range(seconds):
-        clock()
-        utime.sleep(1)
-    apply()
+# ##############################################################################
+
+
+def run_clock():
+    timer.init(period=1000, mode=Timer.PERIODIC, callback=lambda t: clock())
+
+
+def run_solun():
+    paris_solun()
     timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
+
+
+def stop_timer():
+    timer.deinit()
 
 
 # ##############################################################################
@@ -380,5 +378,4 @@ def time(seconds=15):
 def run():
     paris()
     ramp_up()
-    paris_solun()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
+    run_solun()

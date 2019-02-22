@@ -1,6 +1,10 @@
 import math
 
 
+def sign(value):
+    return -1 if value < 0 else 1
+
+
 def wrap_to_pi(a):
     return math.atan2(math.sin(a), math.cos(a))
 
