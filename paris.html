@@ -38,27 +38,41 @@
             <div class="col-lg-4 col-lg-offset-4">
                 <form>
                     <div class="form-group">
-                        <label for="primary">Primary</label>
+                        <label for="primary">Primary (Top)</label>
                         <input type="color" class="form-control" id="primary" value="#ff0000">
                     </div>
                     <div class="form-group">
-                        <label for="secondary">Secondary</label>
+                        <label for="formControlRangePrim">Brightness</label>
+                        <input type="range" class="form-control-range" id="formControlRangePrim" min=0 max=255 value=0>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="secondary">Secondary (Bottom)</label>
                         <input type="color" class="form-control" id="secondary" value="#00ff00">
                     </div>
                     <div class="form-group">
-                        <label for="tertiary">Tertiary</label>
+                        <label for="formControlRangeSeco">Brightness</label>
+                        <input type="range" class="form-control-range" id="formControlRangeSeco" min=0 max=255 value=0>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tertiary">Tertiary (Left)</label>
                         <input type="color" class="form-control" id="tertiary" value="#0000ff">
                     </div>
                     <div class="form-group">
-                        <label for="quaternary">Quaternary</label>
+                        <label for="formControlRangeTert">Brightness</label>
+                        <input type="range" class="form-control-range" id="formControlRangeTert" min=0 max=255 value=0>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="quaternary">Quaternary (Right)</label>
                         <input type="color" class="form-control" id="quaternary" value="#00ffff">
                     </div>
-                </form>
-                <form>
                     <div class="form-group">
-                        <label for="formControlRange">Brightness</label>
-                        <input type="range" class="form-control-range" id="formControlRange" min=0 max=255 value=0>
+                        <label for="formControlRangeQuat">Brightness</label>
+                        <input type="range" class="form-control-range" id="formControlRangeQuat" min=0 max=255 value=0>
                     </div>
+
                 </form>
             </div>
         </div>
@@ -68,8 +82,9 @@
                     <button class="btn btn-default" type="button">stop_timer()</button>
                     <button class="btn btn-default" type="button">run_solun()</button>
                     <button class="btn btn-default" type="button">run_clock()</button>
+                    <button class="btn btn-default" type="button">run_clock(neon=True)</button>
 
-                    <button class="btn btn-default" type="button">neon()</button>
+                    <button class="btn btn-default" type="button">neon_sides()</button>
                     <button class="btn btn-default" type="button">bounce('north', (primary), (secondary), (tertiary), True, 10)</button>
                     <button class="btn btn-default" type="button">cycle_channels()</button>
                     <button class="btn btn-default" type="button">cycle_color((primary))</button>
@@ -140,12 +155,16 @@ $(document).ready(function() {
     });
 
     $('#selector button').click(function() {
-        var w = parseInt($('#formControlRange').val());
-        var c1 = hex2rgb($('#primary').val(), w);
-        var c2 = hex2rgb($('#secondary').val(), w);
-        var c3 = hex2rgb($('#tertiary').val(), w);
-        var c4 = hex2rgb($('#quaternary').val(), w);
-        fn = $(this).text().replace('primary', c1).replace('secondary', c2).replace('tertiary', c3).replace('quaternary', c4);
+        var w1 = parseInt($('#formControlRangePrim').val());
+        var w2 = parseInt($('#formControlRangeSeco').val());
+        var w3 = parseInt($('#formControlRangeTert').val());
+        var w4 = parseInt($('#formControlRangeQuat').val());
+
+        var c1 = hex2rgb($('#primary').val(), w1);
+        var c2 = hex2rgb($('#secondary').val(), w2);
+        var c3 = hex2rgb($('#tertiary').val(), w3);
+        var c4 = hex2rgb($('#quaternary').val(), w4);
+        fn = $(this).text().replace('primary', c1).replace('tertiary', c2).replace('quaternary', c3).replace('secondary', c4);
         if (ws) {
             ws.send('paris.' + fn + '\r\n');
         }
