@@ -60,7 +60,7 @@ Follow setup steps and restart.
 
 ## Cross-compile project files
 
-Size of scripts seem to large, so modules need to be cross-compiled:
+Size of scripts seem too large, so modules need to be cross-compiled:
 
 ```
 /path/to/mpy-cross/mpy-cross module.py
