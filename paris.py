@@ -45,8 +45,8 @@ timer = Timer(-1)
 
 # neon clock utils
 last_minute = 0
-clock_color_1 = colors.random_color()
-clock_color_2 = colors.random_color_2(clock_color_1)
+clock_color_1 = colors.random_choice()
+clock_color_2 = colors.random_choice_2(clock_color_1)
 
 # init neopixels
 pin = Pin(12, Pin.OUT)
@@ -345,7 +345,7 @@ def clock(neon):
     if neon:
         if last_minute != m:
             clock_color_1 = clock_color_2
-            clock_color_2 = colors.random_color_2(clock_color_1)
+            clock_color_2 = colors.random_choice_2(clock_color_1)
             last_minute = m
 
         start = cardinals['north'][0]
