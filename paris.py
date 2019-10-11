@@ -392,6 +392,8 @@ def stop_timer():
 # ##############################################################################
 
 
-def run():
+def run(is_online):
+    paris()
     ramp_up()
-    run_solun()
+    if is_online:
+        run_solun()

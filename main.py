@@ -7,14 +7,19 @@ import paris
 
 
 def connect():
-    wlan = network.WLAN(network.STA_IF)
-    if not wlan.isconnected():
+    sta_if = network.WLAN(network.STA_IF)
+    if not sta_if.isconnected():
         print('connecting to network...')
-        wlan.active(True)
-        wlan.connect('mywifi', 'mywifikey')
-        while not wlan.isconnected():
-            utime.sleep_ms(10)
-    print('network config:', wlan.ifconfig())
+        sta_if.active(True)
+        sta_if.connect('mywifi', 'mywifikey')
+        deadline = utime.ticks_add(utime.ticks_ms(), 10000)
+        while not sta_if.isconnected():
+            machine.idle()
+            if utime.ticks_diff(deadline, utime.ticks_ms()) < 0:
+                break
+        else:
+            print('network config:', sta_if.ifconfig())
+    return sta_if.isconnected()
 
 
 def set_time():
@@ -29,9 +34,17 @@ def set_time():
 
 def init():
     machine.freq(160000000)
-    connect()
-    set_time()
+    if connect():
+        set_time()
+        return True
+    return False
 
 
-init()
-paris.run()
+if __name__ == '__main__':
+    is_online = init()
+    ap_if = network.WLAN(network.AP_IF)
+    if is_online:
+        ap_if.active(False)
+    else:
+        ap_if.active(True)
+    paris.run(is_online)
