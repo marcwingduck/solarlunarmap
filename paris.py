@@ -308,7 +308,6 @@ def calc_solun_positions(lat_long_deg, utc_time):
 def paris_solun():
     paris()
     calc_solun_positions((48.860536, 2.332237), utime.localtime())
-    # neopixel_write(pin, leds_1, True)
     fade_to(4)
 
 
@@ -336,8 +335,10 @@ def solun_demo():
 def clock(neon):
     global leds_0, leds_1, last_minute, clock_color_1, clock_color_2
 
+    utc_offset = 2
     h, m, s = utime.localtime()[3:6]
-    a_h = ((h + 1) % 12 + m / 60.) / 12. * 2. * math.pi
+    h = (h + utc_offset) % 24
+    a_h = (h % 12 + m / 60.) / 12. * 2. * math.pi
     a_m = m / 60. * 2. * math.pi
     a_s = s / 60. * 2. * math.pi
     indices = [intersect_angle_frame(northclockwise2math(x)) for x in [a_h, a_m, a_s]]
@@ -351,20 +352,19 @@ def clock(neon):
         start = cardinals['north'][0]
         progress = int(round(s / 60. * n))
 
-        leds_1 = bytearray(n * list(clock_color_1))
+        leds_0 = bytearray(n * list(clock_color_1))
         for i in range(start, start + progress):
             index = i % n
-            leds_1[index * 4:index * 4 + 4] = clock_color_2
+            leds_0[index * 4:index * 4 + 4] = clock_color_2
 
         for i in range((indices[1] - 1) % n, (indices[1] + 2) % n):
             for j in range(3):
-                leds_1[i * 4 + j] = 255 - leds_1[i * 4 + j]
+                leds_0[i * 4 + j] = 255 - leds_0[i * 4 + j]
         for i in range((indices[0] - 2) % n, (indices[0] + 3) % n):
             for j in range(3):
-                leds_1[i * 4 + j] = 255 - leds_1[i * 4 + j]
+                leds_0[i * 4 + j] = 255 - leds_0[i * 4 + j]
 
-        fade_to(3)
-
+        neopixel_write(pin, leds_0, True)
     else:
         leds_0 = bytearray(n * list(color_ambient))
         set_area(indices[2], 5, bytearray((10, 0, 15, 63)), color_ambient, True, True)
