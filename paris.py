@@ -220,6 +220,18 @@ def set_sides(north, east, south, west):
     neopixel_write(pin, leds_0, True)
 
 
+def set_vertical(c1, c2):
+    set_area(cols//2 + n//2, n//2, c1, c1)
+    set_area(cols//2, n//2, c2, c2)
+    fade_to()
+
+
+def set_horizontal(c1, c2):
+    set_area(cols+rows//2, n//2, c1, c1)
+    set_area(cols+rows+cols+rows//2, n//2, c2, c2)
+    fade_to()
+
+
 def neon_sides():
     set_sides((255, 0, 255, 0), (255, 255, 0, 0), (0, 255, 255, 0), (255, 0, 0, 0))
 
@@ -376,8 +388,21 @@ def clock(neon):
 # ##############################################################################
 
 
+def fade_random():
+    global leds_1
+    leds_1 = bytearray(n * list(colors.random_choice()))
+    fade_to(20)
+
+
+# ##############################################################################
+
+
 def run_clock(neon=False):
     timer.init(period=1000, mode=Timer.PERIODIC, callback=lambda t: clock(neon))
+
+
+def run_random():
+    timer.init(period=2000, mode=Timer.PERIODIC, callback=lambda t: fade_random())
 
 
 def run_solun():
