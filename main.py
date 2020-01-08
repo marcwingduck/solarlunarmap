@@ -7,11 +7,19 @@ import paris
 
 
 def connect():
+    try:
+        wifi_file = open('connection', 'r')
+    except OSError:
+        return False
+
+    connection = wifi_file.readline().strip()
+    ssid, passwd = connection.split(':')
+
     sta_if = network.WLAN(network.STA_IF)
     if not sta_if.isconnected():
         print('connecting to network...')
         sta_if.active(True)
-        sta_if.connect('mywifi', 'mywifikey')
+        sta_if.connect(ssid, passwd)
         deadline = utime.ticks_add(utime.ticks_ms(), 10000)
         while not sta_if.isconnected():
             machine.idle()

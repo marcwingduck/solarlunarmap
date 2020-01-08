@@ -1,6 +1,6 @@
 # Solar Map
 
-I have Upgraded an almost 50 year old map of Paris to display solar/lunar positions.
+I have upgraded an almost 50 year old map of Paris to display solar/lunar positions.
 
 ![Solar/Luna](http://marclieser.de/data/content/interests/solarmap/solarmap_header.jpg)
 
@@ -12,7 +12,7 @@ I have Upgraded an almost 50 year old map of Paris to display solar/lunar positi
 
 ## Build and flash firmware
 
-Detailed description how to setup VM at [Adafruit](https://learn.adafruit.com/building-and-running-micropython-on-the-esp8266/build-firmware#provision-virtual-machine-2-5). When already setup, follow these steps to update and build micropython:
+Detailed description of how to setup VM at [Adafruit](https://learn.adafruit.com/building-and-running-micropython-on-the-esp8266/build-firmware#provision-virtual-machine-2-5). When already setup, follow these steps to update and build micropython:
 
 ### Start VM
 
@@ -66,4 +66,4 @@ Size of scripts seem too large, so modules need to be cross-compiled:
 /path/to/mpy-cross/mpy-cross module.py
 ```
 
-Transfer `main.py` and compiled modules to ESP8266 using webREPL. Remember to replace `mywifi` and `mywifikey` in `main.py`.
+Transfer `main.py` and compiled modules to ESP8266 using webREPL. Create and move a file named `connection` that contains one line `ssid:passwd`.
