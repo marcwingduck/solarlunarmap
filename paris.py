@@ -162,8 +162,8 @@ def set_area(center, size, primary, secondary, linear=False, direct=False):
     half = int(size / 2)
     start = center - half
     end = center + half + size % 2
+    d = 0. if size % 2 else 0.5
     for i in range(start, end):
-        d = 0. if size % 2 else 0.5
         x = center - i - d
         t = math.fabs((x - sign(x) * d) / (half - (size + 1) % 2))
         color = interpolate_rgbw(primary, secondary, t if linear else (t * t))
@@ -190,12 +190,12 @@ def ramp_up():
     neopixel_write(pin, leds_0, True)
     utime.sleep_ms(200)
     for i in range(size // 2):
-        i1 = (center - d - (i % n)) * 4
-        i2 = (center + (i % n)) * 4
-        leds_0[i1:i1 + 4] = ramp_color_1
-        leds_0[i2:i2 + 4] = ramp_color_1
+        i1 = (center - (i % n) - d) % n
+        i2 = (center + (i % n)) % n
+        leds_0[i1 * 4:i1 * 4 + 4] = ramp_color_1
+        leds_0[i2 * 4:i2 * 4 + 4] = ramp_color_1
         neopixel_write(pin, leds_0, True)
-        utime.sleep_ms(10)
+        utime.sleep_ms(12)
     for i in range(16):
         color = interpolate_rgbw(ramp_color_1, ramp_color_2, (i + 1) / 16)
         set_area(cardinals['north'][0], cols, color, ramp_color_1, False, True)
@@ -229,6 +229,18 @@ def set_vertical(c1, c2):
 def set_horizontal(c1, c2):
     set_area(cols+rows//2, n//2, c1, c1)
     set_area(cols+rows+cols+rows//2, n//2, c2, c2)
+    fade_to()
+
+
+def set_vertical_interp(c1, c2):
+    set_area(cardinals['north'][0], cardinals['north'][1], c1, c1)
+    set_area(cardinals['south'][0], cardinals['south'][1], c2, c2)
+    for i in range(rows):
+        color = interpolate_rgbw(c1, c2, (i + 1) / rows)
+        i_east = north_east + i
+        i_west = north_west - i - 1
+        leds_1[i_east * 4:i_east * 4 + 4] = bytearray(color)
+        leds_1[i_west * 4:i_west * 4 + 4] = bytearray(color)
     fade_to()
 
 
@@ -422,3 +434,5 @@ def run(is_online):
     ramp_up()
     if is_online:
         run_solun()
+    else:
+        set_vertical_interp((0, 0, 0, 255), color_river)
