@@ -236,11 +236,12 @@ def set_vertical_interp(c1, c2):
     set_area(cardinals['north'][0], cardinals['north'][1], c1, c1)
     set_area(cardinals['south'][0], cardinals['south'][1], c2, c2)
     for i in range(rows):
-        color = interpolate_rgbw(c1, c2, (i + 1) / rows)
+        color_linear = interpolate_rgbw(c1, c2, (i + 1) / rows)
+        color = bytearray([colors.gamma[c] for c in color_linear])
         i_east = north_east + i
         i_west = north_west - i - 1
-        leds_1[i_east * 4:i_east * 4 + 4] = bytearray(color)
-        leds_1[i_west * 4:i_west * 4 + 4] = bytearray(color)
+        leds_1[i_east * 4:i_east * 4 + 4] = color
+        leds_1[i_west * 4:i_west * 4 + 4] = color
     fade_to()
 
 
