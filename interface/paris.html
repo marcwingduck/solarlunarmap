@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>ESP8266 MicroPython Smart Map</title>
+    <link rel="stylesheet" href="resources/bootstrap.min.css">
+    <link rel="stylesheet" href="resources/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!--header-->
+        <div class="row">
+            <div class="col-10 mx-auto jumbotron">
+                <h2>Paris Solaire/Lunaire</h2>
+                <p class="lead">Send commands to your Solar/Lunar Map of Paris.</p>
+                <span class="label label-info" id="status"></span>
+                <form class="form-inline">
+                    <div class="form-group">
+                        <label for="boardURL">URL</label>
+                        <input type="text" class="form-control" id="boardURL" value="ws://192.168.4.1:8266/">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" class="form-control" id="password" placeholder="Password">
+                    </div>
+                    <button class="btn btn-primary" type="button" id="open">Open</button>
+                    <button class="btn btn-primary" type="button" id="close">Close</button>
+                </form>
+            </div>
+        </div>
+        <!--image and color buttons-->
+        <div class="row flex-nowrap no-gutters">
+            <div class="col"></div>
+            <div class="col-8">
+                <input type="range" class="form-control-range" id="wNorth" min=0 max=255 value=0>
+            </div>
+            <div class="col"></div>
+        </div>
+        <div class="row flex-nowrap no-gutters">
+            <div class="col"></div>
+            <div class="col-8">
+                <input type="color" class="form-control color-form" id="north" value="#ff0000">
+            </div>
+            <div class="col"></div>
+        </div>
+        <div class="row flex-nowrap no-gutters">
+            <div class="col">
+                <div class="vert-wrap">
+                    <input type="range" class="form-control-range vert" id="wWest" min=0 max=255 value=0>
+                </div>
+            </div>
+            <div class="col">
+                <input type="color" class="form-control color-form" id="west" value="#0000ff">
+            </div>
+            <div class="col-8">
+                <img class="img-fluid" src="resources/paris.jpg">
+            </div>
+            <div class="col">
+                <input type="color" class="form-control color-form" id="east" value="#00ffff">
+            </div>
+            <div class="col">
+                <div class="vert-wrap">
+                    <input type="range" class="form-control-range vert" id="wEast" min=0 max=255 value=0>
+                </div>
+            </div>
+        </div>
+        <div class="row flex-nowrap no-gutters">
+            <div class="col"></div>
+            <div class="col-8" id="south-view">
+                <input type="color" class="form-control color-form" id="south" value="#00ff00">
+            </div>
+            <div class="col"></div>
+        </div>
+        <div class="row flex-nowrap no-gutters">
+            <div class="col"></div>
+            <div class="col-8">
+                <input type="range" class="form-control-range" id="wSouth" min=0 max=255 value=0>
+            </div>
+            <div class="col"></div>
+        </div>
+        <!--buttons-->
+        <div class="row">
+            <div class="col-8 mx-auto">
+                <div id="selector" class="btn-group-vertical" role="group">
+                    <button class="btn btn-light text-left" type="button">stop_timer()</button>
+                    <button class="btn btn-light text-left" type="button">run_solun()</button>
+                    <button class="btn btn-light text-left" type="button">run_clock()</button>
+                    <button class="btn btn-light text-left" type="button">run_clock(neon=True)</button>
+                    <button class="btn btn-light text-left" type="button">neon_sides()</button>
+                    <button class="btn btn-light text-left" type="button">bounce('north', {north}, {west}, {east}, True,
+                        10)</button>
+                    <button class="btn btn-light text-left" type="button">cycle_channels()</button>
+                    <button class="btn btn-light text-left" type="button">cycle_color({north})</button>
+                    <button class="btn btn-light text-left"
+                        type="button">set_sides({north},{east},{south},{west})</button>
+                    <button class="btn btn-light text-left" type="button">set_vertical({north},{south})</button>
+                    <button class="btn btn-light text-left" type="button">set_vertical_interp({north},{south})</button>
+                    <button class="btn btn-light text-left" type="button">set_horizontal({east},{west})</button>
+                    <button class="btn btn-light text-left" type="button">solun_demo()</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+<script src="resources/jquery-3.5.1.min.js"></script>
+<script src="resources/bootstrap.min.js"></script>
+<script>
+    var ws = null;
+
+    function webreplConnect(url, password, onConnect, onError) {
+        ws = new WebSocket(url);
+        ws.onopen = function () {
+            ws.onmessage = function (e) {
+
+            }
+            ws.send(password + '\r\n');
+            ws.send('\x03');
+            updateStatus(ws);
+        };
+        ws.onclose = function (e) {
+            updateStatus(ws);
+        }
+        ws.onerror = function (e) {
+            updateStatus(ws);
+        };
+    }
+
+    function hex2rgb(hex, w) {
+        hex = hex.slice(1);
+        var bigint = parseInt(hex, 16);
+        var r = (bigint >> 16) & 255;
+        var g = (bigint >> 8) & 255;
+        var b = bigint & 255;
+        return '(' + [g, r, b, w].join() + ')';
+    }
+
+    function updateStatus() {
+        if (!ws) {
+            $('#status').text("null");
+        } else if (ws.readyState == ws.OPEN) {
+            $('#status').text("Open");
+        } else if (ws.readyState == ws.CLOSED) {
+            $('#status').text("Closed");
+        } else {
+            $('#status').text("¯\\_(ツ)_/¯");
+        }
+    }
+
+    $(document).ready(function () {
+        updateStatus(ws);
+
+        $('#open').click(function () {
+            var boardURL = $('#boardURL').val();
+            var password = $('#password').val();
+            webreplConnect(boardURL, password);
+        });
+
+        $('#close').click(function () {
+            if (ws) {
+                ws.close();
+            }
+        });
+
+        $('#selector button').click(function () {
+            var w1 = parseInt($('#wNorth').val());
+            var w2 = parseInt($('#wEast').val());
+            var w3 = parseInt($('#wSouth').val());
+            var w4 = parseInt($('#wWest').val());
+
+            var c1 = hex2rgb($('#north').val(), w1);
+            var c2 = hex2rgb($('#east').val(), w2);
+            var c3 = hex2rgb($('#south').val(), w3);
+            var c4 = hex2rgb($('#west').val(), w4);
+            fn = $(this).text().replace('{north}', c1).replace('{east}', c2).replace('{south}', c3).replace('{west}', c4);
+            console.log(fn);
+            if (ws) {
+                ws.send('paris.' + fn + '\r\n');
+            }
+        });
+
+        $('#wWest').css('width', $('#wWest').parent().height());
+        $('#wWest').css('height', $('#wWest').parent().width());
+        var px = $('#wWest').parent().width() / 2;
+        var py = $('#wWest').parent().height() / 2;
+        $('#wWest').css('left', px - py).css('top', py - px);
+
+        $('#wEast').css('width', $('#wEast').parent().height());
+        $('#wEast').css('height', $('#wEast').parent().width());
+        var px = $('#wEast').parent().width() / 2;
+        var py = $('#wEast').parent().height() / 2;
+        $('#wEast').css('left', px - py).css('top', py - px);
+    });
+</script>
+
+</html>
