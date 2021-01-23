@@ -182,7 +182,8 @@ def ramp_up():
     size = (cols + 2 * rows)
     d = (size + 1) % 2
     ramp_color_1 = bytearray((0, 0, 0, 5))
-    ramp_color_2 = bytearray((0, 0, 0, 20))
+    ramp_color_2 = bytearray((0, 0, 0, 50))
+    ramp_color_3 = bytearray((0, 0, 0, 200))
 
     off()
 
@@ -197,7 +198,7 @@ def ramp_up():
         neopixel_write(pin, leds_0, True)
         utime.sleep_ms(12)
     for i in range(16):
-        color = interpolate_rgbw(ramp_color_1, ramp_color_2, (i + 1) / 16)
+        color = interpolate_rgbw(ramp_color_1, ramp_color_3, (i + 1) / 16)
         set_area(cardinals['north'][0], cols, color, ramp_color_1, False, True)
         neopixel_write(pin, leds_0, True)
         utime.sleep_ms(1)
@@ -210,14 +211,14 @@ def ramp_up():
 
 def set_sides(north, east, south, west):
     for i in range(*cardinals['north'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(north)
+        leds_1[i * 4:i * 4 + 4] = bytearray(north)
     for i in range(*cardinals['east'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(east)
+        leds_1[i * 4:i * 4 + 4] = bytearray(east)
     for i in range(*cardinals['south'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(south)
+        leds_1[i * 4:i * 4 + 4] = bytearray(south)
     for i in range(*cardinals['west'][2]):
-        leds_0[i * 4:i * 4 + 4] = bytearray(west)
-    neopixel_write(pin, leds_0, True)
+        leds_1[i * 4:i * 4 + 4] = bytearray(west)
+    fade_to()
 
 
 def set_vertical(c1, c2):
@@ -360,7 +361,7 @@ def solun_demo():
 def clock(neon):
     global leds_0, leds_1, last_minute, clock_color_1, clock_color_2
 
-    utc_offset = 2
+    utc_offset = 1
     h, m, s = utime.localtime()[3:6]
     h = (h + utc_offset) % 24
     a_h = (h % 12 + m / 60.) / 12. * 2. * math.pi
