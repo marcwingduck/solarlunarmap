@@ -1,8 +1,8 @@
 import machine
 import network
-import ntptime
 import utime
 
+import timing
 import paris
 
 
@@ -30,20 +30,10 @@ def connect():
     return sta_if.isconnected()
 
 
-def set_time():
-    while True:
-        try:
-            ntptime.settime()
-            break
-        except OSError:
-            utime.sleep_ms(10)
-    print('time:', utime.localtime())
-
-
 def init():
     machine.freq(160000000)
     if connect():
-        set_time()
+        timing.update_time()
         return True
     return False
 

@@ -5,6 +5,7 @@ import colors
 from esp import neopixel_write
 from common import sign, northclockwise2math
 import solun
+import timing
 
 # number of leds
 n = 180
@@ -412,6 +413,12 @@ def fade_random():
 
 
 def run_clock(neon=False):
+    timing.update_time()
+    s = utime.localtime()[5]  # seconds
+    while True:  # wait for the next full second
+        if utime.localtime()[5] != s:
+            break
+        utime.sleep_ms(10)
     timer.init(period=1000, mode=Timer.PERIODIC, callback=lambda t: clock(neon))
 
 
