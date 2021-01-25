@@ -15,11 +15,11 @@ n = 180
 cols = 54
 rows = 36
 
-leds_per_m = 60
+leds_per_cm = 0.6
 
 # width and height of the frame in meters
-width = cols/leds_per_m  # 0.9 m
-height = rows/leds_per_m  # 0.6 m
+width = cols/leds_per_cm  # 90 cm
+height = rows/leds_per_cm  # 60 cm
 
 # led indices at intercardinal directions
 south_east = 0
@@ -93,7 +93,7 @@ def intersect_angle_frame(angle, sub=False):
         elif side == 'east':
             dist = 2 * width + height - y + height / 2.
 
-        n_leds = dist * leds_per_m
+        n_leds = dist * leds_per_cm
         if not sub:
             n_leds = int(n_leds)  # round down (0,...,n-1)
         return n_leds  # flattened number of leds with fraction
