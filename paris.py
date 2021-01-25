@@ -18,8 +18,8 @@ rows = 36
 leds_per_cm = 0.6
 
 # width and height of the frame in cm
-width = 89.5
-height = 60.5
+width = 90.
+height = 60.
 
 # led indices at intercardinal directions
 south_east = 0
@@ -48,8 +48,8 @@ leds_1 = bytearray(n * 4)
 timer = Timer(-1)
 
 # neon clock utils
-last_minute = 0
-last_second = 0
+last_minute = -1
+last_second = -1
 start_second = 0
 clock_color_1 = colors.random_choice()
 clock_color_2 = colors.random_choice_2(clock_color_1)
@@ -97,11 +97,10 @@ def intersect_angle_frame(angle, sub=False):
         elif side == 'east':
             cm = 2 * width + height - y + height / 2.
 
-        if sub:  # flattened with fraction
-            return leds_per_cm * cm
-        else:  # led index at length
-            i = int(round(leds_per_cm * cm - 1))
-            return clamp(i, 0, n - 1)  # sanity clamp
+        n_leds = cm * leds_per_cm
+        if not sub:
+            n_leds = int(n_leds)  # round down (0,...,n-1)
+        return n_leds  # flattened number of leds with fraction
     return None
 
 
@@ -369,15 +368,18 @@ def clock(neon, linear):
     h_i = intersect_angle_frame(northclockwise2math(a_h))
 
     if neon:
+        if last_minute != m:  # switch color
+            clock_color_1 = clock_color_2
+            clock_color_2 = colors.random_choice_2(clock_color_1)
+            last_minute = m
         if last_second != s:
             start_second = utime.ticks_ms()
             last_second = s
-        frac_seconds = clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
-        seconds = s + frac_seconds
 
-        start = cardinals['north'][0]  # 12 o'clock
+        seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
 
-        leds_0 = bytearray(n * list(clock_color_1))  # initial color
+        start = intersect_angle_frame(northclockwise2math(0))  # 12 o'clock
+
         frac_led_index = 0  # partially lit led index
         frac = 0.  # interpolation factor
         n_leds = 0  # number of seconds leds (from top to seconds hand)
@@ -385,14 +387,16 @@ def clock(neon, linear):
         if linear:  # interpolate indices (linear velocity)
             fraction_led = seconds / 60. * n
             frac, frac_led_index = math.modf(fraction_led)
-            frac_led_index = (start + int(frac_led_index)) % n
-            n_leds = frac_led_index
+            n_leds = int(frac_led_index)
+            frac_led_index = (start + n_leds) % n
         else:  # clock  hand (faster at edges)
             a_s = seconds / 60. * 2. * math.pi
             fraction_led = intersect_angle_frame(northclockwise2math(a_s), True)
             frac, frac_led_index = math.modf(fraction_led)
-            frac_led_index = int(frac_led_index) % n
+            frac_led_index = int(frac_led_index)
             n_leds = (frac_led_index - start) % n
+
+        leds_0 = bytearray(n * list(clock_color_1))  # initialize color
 
         # fully lit seconds leds
         for i in range(start, start + n_leds):
@@ -411,11 +415,6 @@ def clock(neon, linear):
                 leds_0[i * 4 + j] = 255 - leds_0[i * 4 + j]
 
         neopixel_write(pin, leds_0, True)
-
-        if last_minute != m:  # switch color
-            clock_color_1 = clock_color_2
-            clock_color_2 = colors.random_choice_2(clock_color_1)
-            last_minute = m
     else:
         a_s = s / 60. * 2. * math.pi
         s_i = intersect_angle_frame(northclockwise2math(a_s))
@@ -471,5 +470,6 @@ def run(is_online):
     ramp_up()
     if is_online:
         run_solun()
+        # run_clock(True, True)
     else:
         set_vertical_interp((0, 0, 0, 255), color_river)
