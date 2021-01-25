@@ -15,11 +15,11 @@ n = 180
 cols = 54
 rows = 36
 
-leds_per_cm = 0.6
+leds_per_m = 60
 
-# width and height of the frame in cm
-width = 90.
-height = 60.
+# width and height of the frame in meters
+width = cols/leds_per_m  # 0.9 m
+height = rows/leds_per_m  # 0.6 m
 
 # led indices at intercardinal directions
 south_east = 0
@@ -54,6 +54,9 @@ start_second = 0
 clock_color_1 = colors.random_choice()
 clock_color_2 = colors.random_choice_2(clock_color_1)
 
+last_angle = 0
+last_millis = 0
+
 # init neopixels
 pin = Pin(12, Pin.OUT)
 neopixel_write(pin, leds_0, True)
@@ -62,20 +65,13 @@ neopixel_write(pin, leds_0, True)
 # ##############################################################################
 
 
-def interpolate(a, b, t):
-    if t < 0. + 1e-3:
-        return a
-    if t > 1. - 1e-3:
-        return b
-    return a + t * (b - a)
-
-
 def interpolate_rgbw(a, b, t):
     # return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)], faster:
     c = []
     for i in range(4):
         c.append(int(interpolate(a[i], b[i], t)))
     return c
+
 
 # ##############################################################################
 
@@ -86,18 +82,18 @@ def intersect_angle_frame(angle, sub=False):
     if result:
         side, (x, y) = result
 
-        # unwind to centimeters on the stripe
-        cm = 0
+        # unwind to distance on the stripe
+        dist = 0
         if side == 'south':
-            cm = -x + width / 2.
+            dist = -x + width / 2.
         elif side == 'west':
-            cm = width + y + height / 2.
+            dist = width + y + height / 2.
         elif side == 'north':
-            cm = width + height + x + width / 2.
+            dist = width + height + x + width / 2.
         elif side == 'east':
-            cm = 2 * width + height - y + height / 2.
+            dist = 2 * width + height - y + height / 2.
 
-        n_leds = cm * leds_per_cm
+        n_leds = dist * leds_per_m
         if not sub:
             n_leds = int(n_leds)  # round down (0,...,n-1)
         return n_leds  # flattened number of leds with fraction
@@ -355,8 +351,36 @@ def solun_demo():
 # ##############################################################################
 
 
+def spin():
+    global leds_0, last_millis, last_angle
+
+    tail = 12
+    rps = 0.5
+
+    now_millis = utime.ticks_ms()
+    dt = (now_millis - last_millis) / 1000.
+    last_millis = now_millis
+
+    angle = wrap_to_0_2pi(last_angle + dt * rps * 2. * math.pi)
+    fraction_led = intersect_angle_frame(northclockwise2math(angle), True)
+    last_angle = angle
+
+    frac, frac_led_index = math.modf(fraction_led)
+    frac_led_index = int(frac_led_index)
+
+    leds_0 = bytearray(n * list([0, 0, 0, 0]))  # initialize color
+
+    for i in range(tail):
+        index = (frac_led_index - i) % n
+        t = 1. - float(i) / tail
+        ramp_color = interpolate_rgbw([0, 0, 0, 0], colors.colors['rose'], t)
+        leds_0[index * 4:index * 4 + 4] = bytearray(ramp_color)
+
+    neopixel_write(pin, leds_0, True)
+
+
 def clock(neon, linear):
-    global leds_0, leds_1, last_minute, last_second, start_second, clock_color_1, clock_color_2
+    global leds_0, last_minute, last_second, start_second, clock_color_1, clock_color_2
 
     utc_offset = 1
     h, m, s = utime.localtime()[3:6]
@@ -399,8 +423,8 @@ def clock(neon, linear):
         leds_0 = bytearray(n * list(clock_color_1))  # initialize color
 
         # fully lit seconds leds
-        for i in range(start, start + n_leds):
-            index = i % n
+        for i in range(n_leds):
+            index = (start + i) % n
             leds_0[index * 4:index * 4 + 4] = clock_color_2
 
         # single partially lit seconds led
@@ -449,6 +473,10 @@ def run_clock(neon=False, linear=True):
     timer.init(period=dt, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
 
 
+def run_spin():
+    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin())
+
+
 def run_random():
     timer.init(period=2000, mode=Timer.PERIODIC, callback=lambda t: fade_random())
 
@@ -470,6 +498,5 @@ def run(is_online):
     ramp_up()
     if is_online:
         run_solun()
-        # run_clock(True, True)
     else:
         set_vertical_interp((0, 0, 0, 255), color_river)

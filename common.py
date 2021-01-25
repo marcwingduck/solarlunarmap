@@ -5,6 +5,14 @@ def clamp(v, a, b):
     return max(min(v, b), a)
 
 
+def interpolate(a, b, t):
+    if t < 0. + 1e-3:
+        return a
+    if t > 1. - 1e-3:
+        return b
+    return a + t * (b - a)
+
+
 def cross(a, b):
     return a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]
 
