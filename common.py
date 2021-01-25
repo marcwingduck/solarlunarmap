@@ -1,6 +1,14 @@
 import math
 
 
+def clamp(v, a, b):
+    return max(min(v, b), a)
+
+
+def cross(a, b):
+    return a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]
+
+
 def sign(value):
     return -1 if value < 0 else 1
 
