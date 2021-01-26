@@ -102,6 +102,36 @@ def intersect_angle_frame(angle, sub=False, norm=False):
     return None
 
 
+def get_distance_intensity(i):
+    side = ''
+    x = 0
+    y = 0
+    for e in cardinals:
+        side_range = cardinals[e][2]
+        if side_range[0] <= i and i < side_range[1]:
+            side = e
+            break
+    if side == 'south':
+        j = float(cols-i)
+        x = j/cols * width - width/2.
+        y = -height/2.
+    if side == 'west':
+        j = float(i-cols)
+        x = -width/2.
+        y = j/rows * height - height/2.
+    if side == 'north':
+        j = float(i-cols-rows)
+        x = j/cols * width - width/2.
+        y = height/2.
+    if side == 'east':
+        j = float(rows-(i-cols-rows-cols))
+        x = width/2.
+        y = j/cols * height - height/2.
+    dist = math.sqrt(x*x+y*y)
+    intensity = (height/2.) / dist
+    return intensity
+
+
 def get_border_intersections(width, height, axis):
     side_map = {0: 'north', 1: 'east', 2: 'south', 3: 'west'}
     w2, h2 = width / 2., height / 2.
@@ -151,6 +181,17 @@ def off():
     global leds_0
     leds_0 = bytearray(n * 4)
     neopixel_write(pin, leds_0, True)
+
+
+def set_circular_background(color):
+    global leds_1
+
+    for i in range(n):
+        intensity = get_distance_intensity(i)
+        icolor = [colors.gamma[int(intensity * c)] for c in color]
+        leds_1[i * 4:i * 4 + 4] = bytearray(icolor)
+
+    fade_to()
 
 
 def set_area(center, size, primary, secondary, linear=False, direct=False):
