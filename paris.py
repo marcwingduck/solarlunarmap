@@ -76,7 +76,7 @@ def interpolate_rgbw(a, b, t):
 # ##############################################################################
 
 
-def intersect_angle_frame(angle, sub=False):
+def intersect_angle_frame(angle, sub=False, norm=False):
     line = cross((0., 0., 1.), (math.cos(angle), math.sin(angle), 1.))
     result = get_border_intersections(width, height, line)
     if result:
@@ -96,6 +96,8 @@ def intersect_angle_frame(angle, sub=False):
         n_leds = dist * leds_per_cm
         if not sub:
             n_leds = int(n_leds)  # round down (0,...,n-1)
+        if norm:
+            return n_leds, (height / 2.) / math.sqrt(x*x+y*y)
         return n_leds  # flattened number of leds with fraction
     return None
 
@@ -354,27 +356,31 @@ def solun_demo():
 def spin():
     global leds_0, last_millis, last_angle
 
-    tail = 12
-    rps = 0.5
+    tail = 24
+    rps = 0.6
 
     now_millis = utime.ticks_ms()
     dt = (now_millis - last_millis) / 1000.
     last_millis = now_millis
 
     angle = wrap_to_0_2pi(last_angle + dt * rps * 2. * math.pi)
-    fraction_led = intersect_angle_frame(northclockwise2math(angle), True)
+    fraction_led, intensity = intersect_angle_frame(northclockwise2math(angle), True, True)
     last_angle = angle
 
     frac, frac_led_index = math.modf(fraction_led)
     frac_led_index = int(frac_led_index)
 
-    leds_0 = bytearray(n * list([0, 0, 0, 0]))  # initialize color
+    background = [0, 0, 0, 0]
+    beam_color = [colors.gamma[int(intensity * c)] for c in colors.colors['purple']]
+
+    leds_0 = bytearray(n * background)  # initialize color
 
     for i in range(tail):
         index = (frac_led_index - i) % n
         t = 1. - float(i) / tail
-        ramp_color = interpolate_rgbw([0, 0, 0, 0], colors.colors['rose'], t)
-        leds_0[index * 4:index * 4 + 4] = bytearray(ramp_color)
+        interp_color = interpolate_rgbw([0, 0, 0, 0], beam_color, t)
+        fading = [colors.gamma[c] for c in interp_color]
+        leds_0[index * 4:index * 4 + 4] = bytearray(fading)
 
     neopixel_write(pin, leds_0, True)
 
