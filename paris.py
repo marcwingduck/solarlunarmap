@@ -127,8 +127,8 @@ def get_distance_intensity(i):
         j = float(rows-(i-cols-rows-cols))
         x = width/2.
         y = j/cols * height - height/2.
-    dist = math.sqrt(x*x+y*y)
-    intensity = (height/2.) / dist
+    norm = math.sqrt(x*x+y*y)
+    intensity = (height/2.) / norm
     return intensity
 
 
@@ -394,7 +394,7 @@ def solun_demo():
 # ##############################################################################
 
 
-def spin():
+def spin(color):
     global leds_0, last_millis, last_angle
 
     tail = 24
@@ -412,7 +412,7 @@ def spin():
     frac_led_index = int(frac_led_index)
 
     background = [0, 0, 0, 0]
-    beam_color = [colors.gamma[int(intensity * c)] for c in colors.colors['purple']]
+    beam_color = [colors.gamma[int(intensity * c)] for c in color]
 
     leds_0 = bytearray(n * background)  # initialize color
 
@@ -520,8 +520,8 @@ def run_clock(neon=False, linear=True):
     timer.init(period=dt, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
 
 
-def run_spin():
-    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin())
+def run_spin(color):
+    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin(color))
 
 
 def run_random():
