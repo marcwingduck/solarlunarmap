@@ -291,35 +291,6 @@ def neon_sides():
     set_sides((255, 0, 255, 0), (255, 255, 0, 0), (0, 255, 255, 0), (255, 0, 0, 0))
 
 
-def larson_scanner(primary, secondary):
-    global larson_index, larson_dir, larson_last_dir, leds_1
-
-    size = 5
-
-    leds_1 = bytearray(n * secondary)
-    leds_1[larson_index * 4:larson_index * 4 + 4] = bytearray(primary)
-
-    for i in range(size):
-        b = larson_index + 1 + i
-        a = larson_index - 1 - i
-        t = float(i+1) / size
-        interp_color = interpolate_rgbw(secondary, primary, 1-t)
-        fading = [colors.gamma[c] for c in interp_color]
-        if larson_bounds[0] <= a and a < larson_bounds[1]:
-            leds_1[a * 4:a * 4 + 4] = bytearray(fading)
-        if larson_bounds[0] <= b and a < larson_bounds[1]:
-            leds_1[b * 4:b * 4 + 4] = bytearray(fading)
-
-    neopixel_write(pin, leds_1, True)
-
-    larson_last_dir = larson_dir
-    larson_index += larson_dir
-    if larson_dir == 1 and larson_index == larson_bounds[1] - 1:
-        larson_dir = -1
-    elif larson_dir == -1 and larson_index == larson_bounds[0]:
-        larson_dir = 1
-
-
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
     global leds_0
     for i in range(n * 4 * n_cycles):
@@ -440,6 +411,35 @@ def spin(color):
     neopixel_write(pin, leds_0, True)
 
 
+def larson_scanner(primary, secondary):
+    global larson_index, larson_dir, larson_last_dir, leds_1
+
+    size = 6
+
+    leds_1 = bytearray(n * secondary)
+    leds_1[larson_index * 4:larson_index * 4 + 4] = bytearray(primary)
+
+    for i in range(size):
+        b = larson_index + 1 + i
+        a = larson_index - 1 - i
+        t = float(i+1) / size
+        interp_color = interpolate_rgbw(secondary, primary, 1-t)
+        fading = [colors.gamma[c] for c in interp_color]
+        if larson_bounds[0] <= a and a < larson_bounds[1]:
+            leds_1[a * 4:a * 4 + 4] = bytearray(fading)
+        if larson_bounds[0] <= b and a < larson_bounds[1]:
+            leds_1[b * 4:b * 4 + 4] = bytearray(fading)
+
+    neopixel_write(pin, leds_1, True)
+
+    larson_last_dir = larson_dir
+    larson_index += larson_dir
+    if larson_dir == 1 and larson_index == larson_bounds[1] - 1:
+        larson_dir = -1
+    elif larson_dir == -1 and larson_index == larson_bounds[0]:
+        larson_dir = 1
+
+
 def clock(neon, linear):
     global leds_0, last_minute, last_second, start_second, clock_color_1, clock_color_2
 
@@ -498,8 +498,6 @@ def clock(neon, linear):
         for i in range((h_i - 2) % n, (h_i + 3) % n):  # hours
             for j in range(3):
                 leds_0[i * 4 + j] = 255 - leds_0[i * 4 + j]
-
-        neopixel_write(pin, leds_0, True)
     else:
         a_s = s / 60. * 2. * math.pi
         s_i = intersect_angle_frame(northclockwise2math(a_s))
@@ -508,7 +506,8 @@ def clock(neon, linear):
         set_area(s_i, 5, bytearray((10, 0, 15, 63)), color_ambient, True, True)
         set_area(m_i, 5, bytearray((10, 0, 15, 0)), color_ambient, True, True)
         set_area(h_i, 7, bytearray((0, 0, 0, 128)), color_ambient, True, True)
-        neopixel_write(pin, leds_0, True)
+
+    neopixel_write(pin, leds_0, True)
 
 
 # ##############################################################################
@@ -553,7 +552,7 @@ def run_larson_scanner(cardinal, primary, secondary):
     larson_index = larson_bounds[0]
     larson_dir = 1
     larson_last_dir = -1
-    timer.init(period=40, mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
+    timer.init(period=30, mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
 
 
 def stop_timer():
