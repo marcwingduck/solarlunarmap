@@ -539,7 +539,7 @@ def run_clock(neon=False, linear=True):
         if utime.localtime()[5] != s:
             break
         utime.sleep_ms(10)
-    dt = 100 if neon else 1000
+    dt = 50 if neon else 1000
     timer.init(period=dt, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
 
 
@@ -569,4 +569,4 @@ def run(is_online):
     if is_online:
         run_solun()
     else:
-        set_vertical_interp((0, 0, 0, 255), color_river)
+        set_circular_background([111, 48, 115, 0])
