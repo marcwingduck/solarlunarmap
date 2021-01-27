@@ -57,8 +57,13 @@ clock_color_2 = colors.random_choice_2(clock_color_1)
 last_angle = 0
 last_millis = 0
 
+larson_bounds = (0, n)
+larson_index = 0
+larson_dir = 1
+larson_last_dir = -1
+
 # init neopixels
-pin = Pin(12, Pin.OUT)
+pin = Pin(13, Pin.OUT)
 neopixel_write(pin, leds_0, True)
 
 
@@ -286,24 +291,33 @@ def neon_sides():
     set_sides((255, 0, 255, 0), (255, 255, 0, 0), (0, 255, 255, 0), (255, 0, 0, 0))
 
 
-def bounce(cardinal, primary, secondary, tertiary, keep_lit=False, times=1):
-    off()
-    start, end = cardinals[cardinal][2]
-    size = end - start
-    for i in range(times * size):
-        if not keep_lit:
-            for j in range(size):
-                index = (start + j) * 4
-                leds_0[index:index + 4] = bytearray(primary)
-        if (i // size) % 2 == 0:
-            index = (start + i % size) * 4
-            leds_0[index:index + 4] = bytearray(secondary)
-        else:
-            index = (end - 1 - (i % size)) * 4
-            leds_0[index:index + 4] = bytearray(tertiary)
-        neopixel_write(pin, leds_0, True)
-        utime.sleep_ms(1)
-    off()
+def larson_scanner(primary, secondary):
+    global larson_index, larson_dir, larson_last_dir, leds_1
+
+    size = 5
+
+    leds_1 = bytearray(n * secondary)
+    leds_1[larson_index * 4:larson_index * 4 + 4] = bytearray(primary)
+
+    for i in range(size):
+        b = larson_index + 1 + i
+        a = larson_index - 1 - i
+        t = float(i+1) / size
+        interp_color = interpolate_rgbw(secondary, primary, 1-t)
+        fading = [colors.gamma[c] for c in interp_color]
+        if larson_bounds[0] <= a and a < larson_bounds[1]:
+            leds_1[a * 4:a * 4 + 4] = bytearray(fading)
+        if larson_bounds[0] <= b and a < larson_bounds[1]:
+            leds_1[b * 4:b * 4 + 4] = bytearray(fading)
+
+    neopixel_write(pin, leds_1, True)
+
+    larson_last_dir = larson_dir
+    larson_index += larson_dir
+    if larson_dir == 1 and larson_index == larson_bounds[1] - 1:
+        larson_dir = -1
+    elif larson_dir == -1 and larson_index == larson_bounds[0]:
+        larson_dir = 1
 
 
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
@@ -398,7 +412,7 @@ def spin(color):
     global leds_0, last_millis, last_angle
 
     tail = 24
-    rps = 0.6
+    rps = 0.25
 
     now_millis = utime.ticks_ms()
     dt = (now_millis - last_millis) / 1000.
@@ -509,6 +523,15 @@ def fade_random():
 # ##############################################################################
 
 
+def run_random():
+    timer.init(period=2000, mode=Timer.PERIODIC, callback=lambda t: fade_random())
+
+
+def run_solun():
+    paris_solun()
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
+
+
 def run_clock(neon=False, linear=True):
     timing.update_time()
     s = utime.localtime()[5]  # seconds
@@ -524,13 +547,13 @@ def run_spin(color):
     timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin(color))
 
 
-def run_random():
-    timer.init(period=2000, mode=Timer.PERIODIC, callback=lambda t: fade_random())
-
-
-def run_solun():
-    paris_solun()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
+def run_larson_scanner(cardinal, primary, secondary):
+    global larson_bounds, larson_index, larson_dir, larson_last_dir
+    larson_bounds = cardinals[cardinal][2]
+    larson_index = larson_bounds[0]
+    larson_dir = 1
+    larson_last_dir = -1
+    timer.init(period=40, mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
 
 
 def stop_timer():
