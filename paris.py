@@ -53,6 +53,8 @@ last_second = -1
 start_second = 0
 clock_color_1 = colors.random_choice()
 clock_color_2 = colors.random_choice_2(clock_color_1)
+clock_old_hands = clock_color_2
+clock_new_hands = clock_color_2
 
 last_angle = 0
 last_millis = 0
@@ -441,19 +443,19 @@ def larson_scanner(primary, secondary):
 
 
 def clock(neon, linear):
-    global leds_0, last_minute, last_second, start_second, clock_color_1, clock_color_2
+    global leds_0, last_minute, last_second, start_second, clock_new_hands, clock_old_hands, clock_color_1, clock_color_2
 
     utc_offset = 1
     h, m, s = utime.localtime()[3:6]
     h = (h + utc_offset) % 24
     a_h = (h % 12 + m / 60.) / 12. * 2. * math.pi
-    a_m = m / 60. * 2. * math.pi
 
-    m_i = intersect_angle_frame(northclockwise2math(a_m))
     h_i = intersect_angle_frame(northclockwise2math(a_h))
 
     if neon:
         if last_minute != m:  # switch color
+            clock_old_hands = clock_color_1
+            clock_new_hands = clock_color_2
             clock_color_1 = clock_color_2
             clock_color_2 = colors.random_choice_2(clock_color_1)
             last_minute = m
@@ -462,6 +464,8 @@ def clock(neon, linear):
             last_second = s
 
         seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
+        minutes = (m + seconds / 60.) / 60. * 2. * math.pi
+        m_i = intersect_angle_frame(northclockwise2math(minutes))  # 12 o'clock
 
         start = intersect_angle_frame(northclockwise2math(0))  # 12 o'clock
 
@@ -481,31 +485,34 @@ def clock(neon, linear):
             frac_led_index = int(frac_led_index)
             n_leds = (frac_led_index - start) % n
 
-        leds_0 = bytearray(n * list(clock_color_1))  # initialize color
+        h_hand_range = range(h_i-4, h_i+4)
+        m_hand_range = range(m_i-2, m_i+2)
+        icolor = clock_color_1
 
         # fully lit seconds leds
-        for i in range(n_leds):
-            index = (start + i) % n
-            leds_0[index * 4:index * 4 + 4] = clock_color_2
-
-        # single partially lit seconds led
-        frac_led_color = interpolate_rgbw(clock_color_1, clock_color_2, frac)
-        leds_0[frac_led_index * 4:frac_led_index * 4 + 4] = bytearray(frac_led_color)
-
-        for i in range((m_i - 1) % n, (m_i + 2) % n):  # minutes
-            for j in range(3):
-                leds_0[i * 4 + j] = 255 - leds_0[i * 4 + j]
-        for i in range((h_i - 2) % n, (h_i + 3) % n):  # hours
-            for j in range(3):
-                leds_0[i * 4 + j] = 255 - leds_0[i * 4 + j]
+        for i in range(start, start + n):
+            a_i = i % n
+            is_hand = a_i in h_hand_range or a_i in m_hand_range
+            if i < start + n_leds:  # seconds passed
+                icolor = clock_color_2 if not is_hand else clock_new_hands
+            elif i > start + n_leds:  # seconds to be passed
+                icolor = clock_color_1 if not is_hand else clock_old_hands
+            elif is_hand:  # frac_led_index and hand (partially lit)
+                icolor = interpolate_rgbw(clock_old_hands, clock_new_hands, frac)
+            else:  # frac_led_index and not a hand (partially lit)
+                icolor = interpolate_rgbw(clock_color_1, clock_color_2, frac)
+            leds_0[a_i * 4:a_i * 4 + 4] = bytearray(icolor)
     else:
+        a_m = m / 60. * 2. * math.pi
         a_s = s / 60. * 2. * math.pi
+
+        m_i = intersect_angle_frame(northclockwise2math(a_m))
         s_i = intersect_angle_frame(northclockwise2math(a_s))
 
         leds_0 = bytearray(n * list(color_ambient))
-        set_area(s_i, 5, bytearray((10, 0, 15, 63)), color_ambient, True, True)
         set_area(m_i, 5, bytearray((10, 0, 15, 0)), color_ambient, True, True)
         set_area(h_i, 7, bytearray((0, 0, 0, 128)), color_ambient, True, True)
+        set_area(s_i, 5, bytearray((10, 0, 15, 63)), color_ambient, True, True)
 
     neopixel_write(pin, leds_0, True)
 
