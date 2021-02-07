@@ -1,41 +1,28 @@
 # Solar Map
 
 I have upgraded an almost 50 year old map of Paris to display solar/lunar positions.
+Furthermore there are two different modes to display the current time and some random animations.
+The map can be controlled from your home wifi through a [web interface](http://solar.marclieser.de/) that has its own [repository](https://github.com/marcwingduck/solar_map_web).
 
 ![Solar/Luna](http://marclieser.de/data/content/interests/solarmap/solarmap_header.jpg)
 
 ## Components
 
-- [ESP8266](https://www.adafruit.com/product/2471)
-- [RGBW LED Strips](https://www.adafruit.com/product/2842)
-- [Power Supply](https://www.meanwell-web.com/en-gb/ac-dc-single-output-enclosed-power-supply-output-rsp--75--5)
+- [Adafruit HUZZAH ESP8266 Breakout](https://www.adafruit.com/product/2471)
+- [Neopixel LEDs (SK6812RGBW)](https://www.adafruit.com/product/2842)
+- [Sufficient Power Supply](https://www.meanwell-web.com/en-gb/ac-dc-single-output-enclosed-power-supply-output-rsp--75--5)
 
-## Build and flash firmware
+## MicroPython Firmware
 
-Detailed description of how to setup VM at [Adafruit](https://learn.adafruit.com/building-and-running-micropython-on-the-esp8266/build-firmware#provision-virtual-machine-2-5). When already setup, follow these steps to update and build micropython:
-
-### Start VM
+Download the latest stable firmware from [http://micropython.org/download/esp8266/] and create a new Python environment if not done yet:
 
 ```
-cd esp8266-micropython-vagrant
-vagrant up
-vagrant ssh
+conda create -n esp python=3.8.3
+conda activate esp
+pip install esptool
 ```
 
-### Update micropython project
-
-```
-cd micropython
-git pull --recurse-submodules
-make -C mpy-cross
-cd ports/esp8266
-make
-cp build-GENERIC/firmware-combined.bin /vagrant/
-exit
-vagrant halt
-```
-
-### Connect to FTDI, Pins:
+Connect an USB RS232 adapter to the HUZZAH ESP8266:
 
 ```
 |                              |
@@ -43,27 +30,97 @@ vagrant halt
 ________________________________
 ```
 
-### Flash
+Clear and flash firmware
 
 ```
-esptool.py -p /dev/ttyXXX --baud 460800 write_flash --flash_size=detect 0 firmware-combined.bin
+esptool.py --port /dev/tty.usbserial-XXXXXXXX erase_flash
+esptool.py --port /dev/tty.usbserial-XXXXXXXX --baud 460800 write_flash --flash_size=detect 0 esp8266-20210202-v1.14.bin
 ```
 
-### Setup WebREPL
+Keep the USB connection for the next step.
+
+## WebREPL Setup
+
+Open emulated terminal and initiate the setup process while still being connected to the USB RS232 adapter:
 
 ```
-screen /dev/ttyXXX 115200
+screen /dev/tty.usbserial-XXXXXXXX 115200
 import webrepl_setup
 ```
 
 Follow setup steps and restart.
 
-## Cross-compile project files
+## Cross-compile Project Files
 
-Size of scripts seem too large, so modules need to be cross-compiled:
+The size of scripts seem too large, so modules need to be pre-compiled into bytecode.
+
+### Get Repository
+
+In order to do so, clone the [MicroPython repository](https://github.com/micropython/micropython).
+
+
+```
+git clone https://github.com/micropython/micropython --recurse-submodules
+```
+
+Checkout the version according to the firmware you just flashed:
+
+```
+cd micropython
+git checkout v1.14
+```
+
+### Build Cross Compiler
+
+```
+make -C mpy-cross
+cd ports/esp8266
+make
+```
+
+### Cross Compile Modules
+
+Compile all modules except for the main module:
 
 ```
 /path/to/mpy-cross/mpy-cross module.py
 ```
 
-Transfer `main.py` and compiled modules to ESP8266 using webREPL. Create and move a file named `connection` that contains one line `ssid:passwd`.
+### Transfer Files
+
+Clone WebREPL to have an offline version or use the cached online version:
+* [Repository](https://github.com/micropython/webrepl)
+* [Website](http://micropython.org/webrepl/)
+
+Connect to the MicroPython-XXXXXX WiFi network using the password set or default password micropythoN.
+
+Transfer `main.py` and compiled modules to ESP8266 using WebREPL.
+
+## Configuration
+
+### WiFi Connection
+
+Create and move a file named `connection` that contains one line `ssid:passwd` using WebREPL to enable the project to access the internet in order to retrieve date and time.
+
+### Frame Constants
+
+Variables in `paris.py` that need to be adjusted according to your frame.
+
+The number of LEDs
+
+```
+n = 180
+```
+
+The number of horizontal (cols) and vertical LEDs (rows)
+
+```
+cols = 54
+rows = 36
+```
+
+The number of LEDs per centimeter
+
+```
+leds_per_cm = 0.6
+```
