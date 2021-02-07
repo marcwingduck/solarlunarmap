@@ -17,6 +17,8 @@ rows = 36
 
 leds_per_cm = 0.6
 
+coords = (48.860536, 2.332237)
+
 # width and height of the frame in meters
 width = cols/leds_per_cm  # 90 cm
 height = rows/leds_per_cm  # 60 cm
@@ -356,7 +358,7 @@ def calc_solun_positions(lat_long_deg, utc_time):
 
 def paris_solun():
     paris()
-    calc_solun_positions((48.860536, 2.332237), utime.localtime())
+    calc_solun_positions(coords, utime.localtime())
     fade_to(4)
 
 
@@ -368,7 +370,7 @@ def solun_demo():
         for m in range(0, 60, 10):
             paris()
             # solar/lunar
-            calc_solun_positions((48.860536, 2.332237), (year, month, day, h, m, 0, weekday, yearday))
+            calc_solun_positions(coords, (year, month, day, h, m, 0, weekday, yearday))
             # hour
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
             index = intersect_angle_frame(northclockwise2math(angle))

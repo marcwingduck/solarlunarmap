@@ -1,8 +1,8 @@
 import math
-from common import *
+from common import wrap_to_pi, wrap_to_0_2pi
 
-# obliquity of the ecliptic (tilt of the earth's axis of rotation)
-epsilon = math.radians(23.4393)
+epsilon = math.radians(23.4393)  # obliquity of the ecliptic (tilt of the earth's axis of rotation)
+M_0_Earth = 357.528  # mean anomaly at epoch
 
 
 def calc_julian_date(y, m, d):
@@ -33,17 +33,16 @@ def calc_azim_elev(lat, ha, delta):
 
 
 def calc_lunar_position(coords, date_time, debug=False):
-    M_0_Earth = 357.528
-    Pi_Earth = 102.937
-
     # convert coords to radians
     rlat, rlong = math.radians(coords[0]), math.radians(coords[1])
-
     # unpack date time
     year, month, day, hour, minute, second, weekday, yearday = date_time
-    hours = hour + minute / 60.
-
+    # julian date, number of days since Jan 1st 2000, 12 UTC, julian centeries since 2000
     jd, d, t = calc_julian_date(year, month, day)
+    # Greenwich hour angle at vernal equinox (Frühlingspunkt)
+    theta_g = get_sidereal_time(t, hour + minute / 60.)
+    # hour angle at given location
+    theta = theta_g + rlong
 
     # geocentric ecliptic longitude
     L = math.radians(218.316) + math.radians(13.176396) * d
@@ -66,23 +65,18 @@ def calc_lunar_position(coords, date_time, debug=False):
     # distance (km)
     delta_distance = 385001 - 20905 * math.cos(M)
 
-    # declination
-    delta = math.asin(math.sin(beta) * math.cos(epsilon) + math.cos(beta) * math.sin(epsilon) * math.sin(lmda))
-    delta = wrap_to_0_2pi(delta)
     # right ascension
     alpha = math.atan2(math.sin(lmda) * math.cos(epsilon) - math.tan(beta) * math.sin(epsilon), math.cos(lmda))
     alpha = wrap_to_0_2pi(alpha)
 
-    # Greenwich hour angle at vernal equinox (Frühlingspunkt)
-    theta_g = get_sidereal_time(t, hours)
-    # hour angle at given location
-    theta = theta_g + rlong
+    # declination
+    delta = math.asin(math.sin(beta) * math.cos(epsilon) + math.cos(beta) * math.sin(epsilon) * math.sin(lmda))
+    delta = wrap_to_0_2pi(delta)
+
     # subtract right ascension of the moon to get hour angle
     tau = theta - alpha
 
-    # hour angle
-    # tau = theta - alpha
-
+    # finally calculate azimuth and elevation
     azim, elev = calc_azim_elev(rlat, tau, delta)
 
     if debug:
@@ -98,17 +92,16 @@ def calc_lunar_position(coords, date_time, debug=False):
 
 
 def calc_solar_position(coords, date_time, debug=False):
-    M_0_Earth = 357.528
-
     # convert coords to radians
     rlat, rlong = math.radians(coords[0]), math.radians(coords[1])
-
     # unpack date time
     year, month, day, hour, minute, second, weekday, yearday = date_time
-    hours = hour + minute / 60.
-
     # julian date, number of days since Jan 1st 2000, 12 UTC, julian centeries since 2000
     jd, d, t = calc_julian_date(year, month, day)
+    # Greenwich hour angle at vernal equinox (Frühlingspunkt)
+    theta_g = get_sidereal_time(t, hour + minute / 60.)
+    # hour angle at given location
+    theta = theta_g + rlong
 
     # mean ecliptical length
     L = math.radians(280.460) + math.radians(0.9856474) * d
@@ -136,10 +129,6 @@ def calc_solar_position(coords, date_time, debug=False):
     delta = math.asin(math.sin(i) * math.sin(A))
     delta = wrap_to_0_2pi(delta)
 
-    # Greenwich hour angle at vernal equinox (Frühlingspunkt)
-    theta_g = get_sidereal_time(t, hours)
-    # hour angle at given location
-    theta = theta_g + rlong
     # subtract right ascension of the sun to get hour angle
     tau = theta - alpha
 
@@ -156,3 +145,10 @@ def calc_solar_position(coords, date_time, debug=False):
         print('-----------------------')
 
     return azim, elev
+
+
+if __name__ == '__main__':
+    coords = (48.860536, 2.332237)
+    now = 2021, 2, 7, 15, 31, 2, 6, 38
+    solar = calc_solar_position(coords, now, True)
+    lunar = calc_lunar_position(coords, now, True)

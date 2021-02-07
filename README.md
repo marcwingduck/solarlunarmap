@@ -1,10 +1,15 @@
 # Solar Map
 
 I have upgraded an almost 50 year old map of Paris to display solar/lunar positions.
-Furthermore there are two different modes to display the current time and some random animations.
-The map can be controlled from your home wifi through a [web interface](http://solar.marclieser.de/) that has its own [repository](https://github.com/marcwingduck/solar_map_web).
 
 ![Solar/Luna](http://marclieser.de/data/content/interests/solarmap/solarmap_header.jpg)
+
+Since I could not find a web service to query solar and lunar azimuth and elevation, I used the equations from Wikipedia to do the calculations myself.
+So there are probably some bugs.
+
+Next to the solar/lunar map I have added modes to display the current time and some random animations.
+
+The map can be controlled from your home wifi through a [web interface](http://solar.marclieser.de/) that has its own [repository](https://github.com/marcwingduck/solar_map_web).
 
 ## Components
 
@@ -123,4 +128,10 @@ The number of LEDs per centimeter
 
 ```
 leds_per_cm = 0.6
+```
+
+Latitude and longitude of the location in degrees
+
+```
+coords = (48.860536, 2.332237)
 ```
