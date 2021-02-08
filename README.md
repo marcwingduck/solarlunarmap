@@ -13,13 +13,36 @@ The map can be controlled from your home wifi through a [web interface](http://s
 
 ## Components
 
-- [Adafruit HUZZAH ESP8266 Breakout](https://www.adafruit.com/product/2471)
-- [Neopixel LEDs (SK6812RGBW)](https://www.adafruit.com/product/2842)
-- [Sufficient Power Supply](https://www.meanwell-web.com/en-gb/ac-dc-single-output-enclosed-power-supply-output-rsp--75--5)
+### Main Components
+
+* [Adafruit HUZZAH ESP8266 Breakout](https://www.adafruit.com/product/2471)
+* [Neopixel LEDs (SK6812RGBW)](https://www.adafruit.com/product/2842)
+
+The worst case consumption of the 180 NeoPixels I used for this project is
+
+4 LEDs (RGBW) x 0.02 A (max current per LED) x 180 NeoPixels = 14.4 A
+
+The ESP8266 consumes up to 250 mA.
+So the worst case estimate amounts to 14.65 A, which will never be reached in practice.
+Nevertheless, I opted for the next larger power supply (15 A) because it will run cooler as it will never reach its limit and excessive heat could damage the map or dissolve the glue.
+
+So this 15A/5V power supply should be more than enough
+
+* [Sufficient Power Supply](https://www.meanwell-web.com/en-gb/ac-dc-single-output-enclosed-power-supply-output-rsp--75--5)
+
+### Electronic Components
+
+* 1000 uF capacitor connecting the + and - terminals of the power supply to prevent initial current peaks from damaging other parts of the circuit
+* 470 Ohm data line resistor close to the first NeoPixel to help prevent voltage spikes damaging it (see the [Adafruit NeoPixel Überguide](https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels]), they recommend 300 to 500 Ohm)
+* 74AHCT125N level-shifter from 3 V board logic to 5 V NeoPixel data signal
+* [15 A Fuse](https://www.reichelt.de/feinsicherung-6-3x32mm-flink-us-norm-15a-rnd-170-00087-p204868.html?&nbc=1)
+* [Fuse Holder](https://www.reichelt.de/sicherungshalter-6-3-x-32-20-a-32-v-kabel-litt-01550120hxu-p229211.html?&nbc=1)
+
+Of course some cables are required. I soldered the microcontroller and the level-shifter on a prototyping board.
 
 ## MicroPython Firmware
 
-Download the latest stable firmware from [http://micropython.org/download/esp8266/] and create a new Python environment if not done yet:
+Download the latest stable [ESP8266 MicroPython firmware](http://micropython.org/download/esp8266/) and create a new Python environment if not done yet:
 
 ```
 conda create -n esp python=3.8.3
