@@ -17,7 +17,8 @@ rows = 36
 
 leds_per_cm = 0.6
 
-coords = (48.860536, 2.332237)
+coords = (48.860536, 2.332237)  # paris
+# coords = (50.038333, 8.193611)  # home
 
 # width and height of the frame in meters
 width = cols/leds_per_cm  # 90 cm
@@ -85,12 +86,11 @@ def interpolate_rgbw(a, b, t):
 # ##############################################################################
 
 
-def intersect_angle_frame(angle, sub=False, norm=False):
+def angle_to_unwind(angle):
     line = cross((0., 0., 1.), (math.cos(angle), math.sin(angle), 1.))
     result = get_border_intersections(width, height, line)
     if result:
         side, (x, y) = result
-
         # unwind to distance on the stripe
         dist = 0
         if side == 'south':
@@ -101,12 +101,19 @@ def intersect_angle_frame(angle, sub=False, norm=False):
             dist = width + height + x + width / 2.
         elif side == 'east':
             dist = 2 * width + height - y + height / 2.
+        return dist, (x, y)
+    return None
 
-        n_leds = dist * leds_per_cm
+
+def intersect_angle_frame(angle, sub=False, norm=False):
+    result = angle_to_unwind(angle)
+    if result:
+        distance, (x, y) = result
+        n_leds = distance * leds_per_cm
         if not sub:
             n_leds = int(n_leds)  # round down (0,...,n-1)
-        if norm:
-            return n_leds, (height / 2.) / math.sqrt(x*x+y*y)
+        if norm:  # closest led is 1
+            return n_leds, (min(height, width) / 2.) / math.sqrt(x*x+y*y)
         return n_leds  # flattened number of leds with fraction
     return None
 
@@ -197,7 +204,7 @@ def set_circular_background(color):
 
     for i in range(n):
         intensity = get_distance_intensity(i)
-        icolor = [colors.gamma[int(intensity * c)] for c in color]
+        icolor = [int(intensity * c) for c in color]
         leds_1[i * 4:i * 4 + 4] = bytearray(icolor)
 
     fade_to()
@@ -283,7 +290,7 @@ def set_vertical_interp(c1, c2):
     set_area(cardinals['south'][0], cardinals['south'][1], c2, c2)
     for i in range(rows):
         color_linear = interpolate_rgbw(c1, c2, (i + 1) / rows)
-        color = bytearray([colors.gamma[c] for c in color_linear])
+        color = bytearray(color_linear)
         i_east = north_east + i
         i_west = north_west - i - 1
         leds_1[i_east * 4:i_east * 4 + 4] = color
@@ -363,6 +370,7 @@ def paris_solun():
 
 
 def solun_demo():
+    global leds_1
     paris()
     fade_to()
     year, month, day, hour, minute, second, weekday, yearday = utime.localtime()
@@ -375,7 +383,7 @@ def solun_demo():
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
             index = intersect_angle_frame(northclockwise2math(angle))
             leds_1[index * 4:index * 4 + 4] = bytearray((158, 81, 188, 0))
-            fade_to(2, 10)
+            neopixel_write(pin, leds_1, True)
     paris()
     fade_to()
 
@@ -401,15 +409,14 @@ def spin(color):
     frac_led_index = int(frac_led_index)
 
     background = [0, 0, 0, 0]
-    beam_color = [colors.gamma[int(intensity * c)] for c in color]
+    beam_color = [int(intensity * c) for c in color]
 
     leds_0 = bytearray(n * background)  # initialize color
 
     for i in range(tail):
         index = (frac_led_index - i) % n
         t = 1. - float(i) / tail
-        interp_color = interpolate_rgbw([0, 0, 0, 0], beam_color, t)
-        fading = [colors.gamma[c] for c in interp_color]
+        fading = interpolate_rgbw([0, 0, 0, 0], beam_color, t)
         leds_0[index * 4:index * 4 + 4] = bytearray(fading)
 
     neopixel_write(pin, leds_0, True)
@@ -427,8 +434,7 @@ def larson_scanner(primary, secondary):
         b = larson_index + 1 + i
         a = larson_index - 1 - i
         t = float(i+1) / size
-        interp_color = interpolate_rgbw(secondary, primary, 1-t)
-        fading = [colors.gamma[c] for c in interp_color]
+        fading = interpolate_rgbw(secondary, primary, 1-t)
         if larson_bounds[0] <= a and a < larson_bounds[1]:
             leds_1[a * 4:a * 4 + 4] = bytearray(fading)
         if larson_bounds[0] <= b and a < larson_bounds[1]:
@@ -520,6 +526,12 @@ def clock(neon, linear):
 
 
 # ##############################################################################
+
+def set_color(count, color):
+    global leds_0
+    count = clamp(count, 0, n)
+    leds_0 = bytearray(count * color + (n - 1) * (0, 0, 0, 0))
+    neopixel_write(pin, leds_0, True)
 
 
 def fade_random():

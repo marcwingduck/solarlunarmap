@@ -92,7 +92,7 @@ Connect an USB RS232 adapter to the HUZZAH ESP8266:
 ________________________________
 ```
 
-Clear and flash firmware (press/release RESET while holding GPIO0 button to put it into firmware mode)
+Clear and flash firmware (press/release RESET while holding GPIO0 button to put it into firmware flashing mode)
 
 ```
 esptool.py --port /dev/tty.usbserial-XXXXXXXX erase_flash
