@@ -1,3 +1,5 @@
+# equations from https://www.aa.quae.nl/en/reken.html
+
 import math
 from common import wrap_to_pi, wrap_to_0_2pi
 

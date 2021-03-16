@@ -4,7 +4,7 @@ I have upgraded an almost 50 year old map of Paris to display solar/lunar positi
 
 ![Solar/Luna](http://marclieser.de/data/content/interests/solarmap/solarmap_header.jpg)
 
-Since I could not find a web service to query solar and lunar azimuth and elevation, I used the equations from Wikipedia to do the calculations myself.
+Since I could not find a web service to query solar and lunar azimuth and elevation, I used equations from [https://www.aa.quae.nl/en/reken.html] to do the calculations myself.
 So there are probably some bugs.
 
 Next to the solar/lunar map I have added modes to display the current time and some random animations.
