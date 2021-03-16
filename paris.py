@@ -437,7 +437,7 @@ def larson_scanner(primary, secondary):
         fading = interpolate_rgbw(secondary, primary, 1-t)
         if larson_bounds[0] <= a and a < larson_bounds[1]:
             leds_1[a * 4:a * 4 + 4] = bytearray(fading)
-        if larson_bounds[0] <= b and a < larson_bounds[1]:
+        if larson_bounds[0] <= b and b < larson_bounds[1]:
             leds_1[b * 4:b * 4 + 4] = bytearray(fading)
 
     neopixel_write(pin, leds_1, True)

@@ -7,7 +7,8 @@ epsilon = math.radians(23.4393)  # obliquity of the ecliptic (tilt of the earth'
 
 
 def calc_julian_date(year, month, day, hour=0, minute=0, second=0):
-    day += hour/24 + minute/1440 + second/86400
+    day += hour/24. + minute/1440. + second/86400.
+    print(day)
     if month <= 2:
         month += 12
         year -= 1
@@ -16,19 +17,29 @@ def calc_julian_date(year, month, day, hour=0, minute=0, second=0):
     c = 2 - a + b
     e = math.floor(365.25 * (year + 4716))
     f = math.floor(30.6001 * (month + 1))
+
+    # too large for micropython's poor floating precision; hotfix below
     # julian day
-    jd = c + day + e + f - 1524.5
+    # jd = c + day + e + f - 1524.5
     # number of days since Greenwich noon, Terrestrial Time, on 1 January 2000
-    n = jd - 2451545.
+    #n = jd - 2451545.
     # julian centuries since 2000
-    t = n / 36525.
-    return jd, n, t
+    #t = n / 36525.
+
+    # hotfix
+    # int
+    jd_ = c + e + f
+    n_ = jd_ - 2451545
+    # float
+    n_ -= 1524.5
+    n_ += day
+    return n_
 
 
 def get_sidereal_time(d, long):
     # local sidereal time
     theta0 = math.radians(280.16 + 360.9856235 * d)
-    theta = wrap_to_0_2pi(theta0 + long)  # eastern long positive, western negative
+    theta = wrap_to_0_2pi(theta0 + long)  # long: eastern positive, western negative
     return theta
 
 
@@ -41,13 +52,13 @@ def calc_azim_elev(lat, ha, delta):
     return azim, elev
 
 
-def calc_lunar_position(coords, date_time, debug=False):
+def calc_lunar_position(coords, date_time):
     # convert coords to radians
     rlat, rlong = math.radians(coords[0]), math.radians(coords[1])
     # unpack date time
     year, month, day, hour, minute, second, weekday, yearday = date_time
     # julian date, number of days since Jan 1st 2000, 12 UTC, julian centuries since 2000
-    jd, d, t = calc_julian_date(year, month, day, hour, minute, second)
+    d = calc_julian_date(year, month, day, hour, minute, second)
 
     # geocentric ecliptic longitude
     L = math.radians(218.316) + math.radians(13.176396) * d
@@ -90,13 +101,13 @@ def calc_lunar_position(coords, date_time, debug=False):
     return azim, elev
 
 
-def calc_solar_position(coords, date_time, debug=False):
+def calc_solar_position(coords, date_time):
     # convert coords to radians
     rlat, rlong = math.radians(coords[0]), math.radians(coords[1])
     # unpack date time
     year, month, day, hour, minute, second, weekday, yearday = date_time
     # julian date, number of days since Jan 1st 2000, 12 UTC, julian centuries since 2000
-    jd, d, t = calc_julian_date(year, month, day, hour, minute, second)
+    d = calc_julian_date(year, month, day, hour, minute, second)
 
     # mean ecliptical length
     L = math.radians(280.460) + math.radians(0.9856474) * d
