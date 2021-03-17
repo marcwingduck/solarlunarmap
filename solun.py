@@ -8,7 +8,6 @@ epsilon = math.radians(23.4393)  # obliquity of the ecliptic (tilt of the earth'
 
 def calc_julian_date(year, month, day, hour=0, minute=0, second=0):
     day += hour/24. + minute/1440. + second/86400.
-    print(day)
     if month <= 2:
         month += 12
         year -= 1

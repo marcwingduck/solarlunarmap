@@ -375,7 +375,7 @@ def solun_demo():
     fade_to()
     year, month, day, hour, minute, second, weekday, yearday = utime.localtime()
     for h in range(24):
-        for m in range(0, 60, 10):
+        for m in range(0, 60):
             paris()
             # solar/lunar
             calc_solun_positions(coords, (year, month, day, h, m, 0, weekday, yearday))
