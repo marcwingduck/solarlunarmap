@@ -4,8 +4,12 @@ I have upgraded an almost 50 year old map of Paris to display solar/lunar positi
 
 ![Solar/Luna](http://marclieser.de/data/content/interests/solarmap/solarmap_header.jpg)
 
-Since I could not find a web service to query solar and lunar azimuth and elevation, I used equations from [https://www.aa.quae.nl/en/reken.html] to do the calculations myself.
-So there are probably some bugs.
+Since I could not find a (free) web service to query solar and lunar azimuth and elevation, I used equations from [https://www.aa.quae.nl/en/reken.html] to do the calculations myself.
+The accuracy is very poor and there are probably bugs.
+
+The lack of double precision of the ESP8266 means that basic astronomical calculations cannot be performed with the necessary precision.
+For example, the Julian day number (JDN )cannot actually be calculated to the day.
+I have currently hotfixed this specific problem by breaking the equation into integer and floating point parts, but all following equations lack accuracy and in the long run I will just upgrade to an ESP32.
 
 Next to the solar/lunar map I have added modes to display the current time and some random animations.
 
