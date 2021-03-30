@@ -7,7 +7,7 @@ colors = {
     'yellow': [255, 255, 0, 0],
     'grass': [127, 255, 0, 0],
     'green': [0, 255, 0, 0],
-    'mermaid': [0, 255, 128, 0],
+    'mermaid': [0, 255, 127, 0],
     'cyan': [0, 255, 255, 0],
     'sky': [0, 127, 255, 0],
     'blue': [0, 0, 255, 0],
@@ -15,6 +15,10 @@ colors = {
     'magenta': [255, 0, 255, 0],
     'rose': [255, 0, 127, 0]
 }
+
+# change rgba to grba format
+for key in colors.keys():
+    colors[key] = [colors[key][i] for i in [1, 0, 2, 3]]
 
 gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
@@ -33,22 +37,9 @@ gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          177, 180, 182, 184, 186, 189, 191, 193, 196, 198, 200, 203, 205, 208, 210, 213,
          215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255]
 
-neon_values = (0, 127, 255)
-
-# change rgba to grba format
-for key in colors.keys():
-    colors[key] = bytearray([colors[key][i] for i in [1, 0, 2, 3]])
 
 h, m, s = utime.localtime()[3:6]
 random.seed(int(str(h) + str(m) + str(s)))
-
-
-def random_color():
-    color = [0] * 4
-    for i in range(3):
-        x = int(random.getrandbits(2) / (2 ** 2 - 1) * 2)
-        color[i] = neon_values[x]
-    return color
 
 
 def random_choice():
@@ -58,8 +49,13 @@ def random_choice():
 
 def random_choice_2(color_1):
     color_2 = random_choice()
-    while color_2 == color_1:
-        color_2 = random_choice()
+    for i in range(3):  # make sure to terminate
+        dist = sum([abs(a-b) for a, b in zip(color_1, color_2)])
+        # i know this is very primitive and does not incorporate human color
+        # perception but it prevents sequencing of colors that are too similar
+        # (e.g. yellow/orange).
+        if dist < 255+127:
+            color_2 = random_choice()
     return color_2
 
 

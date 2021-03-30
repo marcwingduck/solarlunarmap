@@ -20,6 +20,8 @@ leds_per_cm = 0.6
 coords = (48.860536, 2.332237)  # paris
 # coords = (50.038333, 8.193611)  # home
 
+utc_offset = 2
+
 # width and height of the frame in meters
 width = cols/leds_per_cm  # 90 cm
 height = rows/leds_per_cm  # 60 cm
@@ -38,7 +40,7 @@ cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_
 
 # default colors (grb!!)
 color_off = bytearray(4)
-color_ambient = bytearray((0, 0, 0, 5))
+color_ambient = bytearray((1, 1, 0, 8))
 color_river = bytearray((10, 0, 15, 0))
 
 # current leds
@@ -54,8 +56,8 @@ timer = Timer(-1)
 last_minute = -1
 last_second = -1
 start_second = 0
-clock_color_1 = colors.random_choice()
-clock_color_2 = colors.random_choice_2(clock_color_1)
+clock_color_1 = colors.colors['cyan']    # start neon clock with
+clock_color_2 = colors.colors['orange']  # a nice combination
 clock_old_hands = clock_color_2
 clock_new_hands = clock_color_2
 
@@ -487,7 +489,6 @@ def larson_scanner(primary, secondary):
 def clock(neon, linear):
     global leds_0, last_minute, last_second, start_second, clock_new_hands, clock_old_hands, clock_color_1, clock_color_2
 
-    utc_offset = 1
     h, m, s = utime.localtime()[3:6]
     h = (h + utc_offset) % 24
     a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
@@ -503,7 +504,6 @@ def clock(neon, linear):
             last_minute = m
         if last_second != s:
             start_second = utime.ticks_ms()
-            last_second = s
 
         seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
         minutes = (m + seconds / 60.) / 60. * 2. * math.pi
@@ -528,8 +528,8 @@ def clock(neon, linear):
             frac_led_index = int(frac_led_index)
             n_leds = (frac_led_index - start) % n
 
-        h_hand_range = range(h_i-4, h_i+4)
-        m_hand_range = range(m_i-2, m_i+2)
+        h_hand_range = range(h_i-5, h_i+5)
+        m_hand_range = range(m_i-3, m_i+3)
         icolor = clock_color_1
 
         # fully lit seconds leds
@@ -545,7 +545,7 @@ def clock(neon, linear):
             else:  # frac_led_index and not a hand (partially lit)
                 icolor = interpolate_rgbw(clock_color_1, clock_color_2, frac)
             leds_0[a_i * 4:a_i * 4 + 4] = bytearray(icolor)
-    else:
+    elif last_second != s:  # regular clock, only update if second has changed
         a_m = m / 60. * 2. * math.pi
         a_s = s / 60. * 2. * math.pi
 
@@ -553,9 +553,11 @@ def clock(neon, linear):
         s_dist = angle_to_unwind(northclockwise2math(a_s))[0]
 
         leds_0 = bytearray(n * list(color_ambient))
-        set_area2(m_dist, 5, bytearray((40, 0, 30, 0)), leds_0)
-        set_area2(h_dist, 7, bytearray((0, 0, 0, 128)), leds_0)
-        set_area2(s_dist, 5, bytearray((10, 0, 15, 63)), leds_0)
+        set_area2(m_dist, 5, bytearray((60, 0, 40, 0)), leds_0)
+        set_area2(h_dist, 8, bytearray((26, 26, 0, 127)), leds_0)
+        set_area2(s_dist, 5, bytearray((26, 26, 0, 102)), leds_0)
+
+    last_second = s
 
     neopixel_write(pin, leds_0, True)
 
@@ -588,14 +590,15 @@ def run_solun():
 
 
 def run_clock(neon=False, linear=True):
+    global last_minute
     timing.update_time()
     s = utime.localtime()[5]  # seconds
     while True:  # wait for the next full second
         if utime.localtime()[5] != s:
+            last_minute = utime.localtime()[4]  # prevents color update on first neon draw
             break
         utime.sleep_ms(10)
-    dt = 50 if neon else 1000
-    timer.init(period=dt, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
+    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
 
 
 def run_spin(color):
@@ -604,14 +607,23 @@ def run_spin(color):
 
 def run_larson_scanner(cardinal, primary, secondary):
     global larson_bounds, larson_index, larson_dir, larson_last_dir
+
     larson_bounds = cardinals[cardinal][2]
     larson_index = larson_bounds[0]
     larson_dir = 1
     larson_last_dir = -1
-    timer.init(period=30, mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
+
+    n_leds = cardinals[cardinal][1]
+    seconds = 2.
+    dt = seconds / n_leds * 1000.
+
+    timer.init(period=int(round(dt)), mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
 
 
 def stop_timer():
+    global leds_0
+
+    leds_0 = leds_1  # copy currently displayed colors to start array for next fade
     timer.deinit()
 
 
@@ -624,4 +636,4 @@ def run(is_online):
     if is_online:
         run_solun()
     else:
-        set_circular_background([111, 48, 115, 0])
+        set_sides((0,0,0,0),(50,50,0,80),(0,0,0,0),(50,50,0,80), False)
