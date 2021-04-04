@@ -636,4 +636,4 @@ def run(is_online):
     if is_online:
         run_solun()
     else:
-        set_sides((0,0,0,0),(50,50,0,80),(0,0,0,0),(50,50,0,80), False)
+        set_sides((0, 0, 0, 0), (50, 50, 0, 80), (0, 0, 0, 0), (50, 50, 0, 80), False)
