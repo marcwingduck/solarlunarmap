@@ -432,17 +432,16 @@ def solun_demo():
 # ##############################################################################
 
 
-def spin(color):
+def spin(color, frequency):
     global leds_0, last_millis, last_angle
 
     tail = 24
-    rps = 0.25
-
+    
     now_millis = utime.ticks_ms()
     dt = (now_millis - last_millis) / 1000.
     last_millis = now_millis
 
-    angle = wrap_to_0_2pi(last_angle + dt * rps * 2. * math.pi)
+    angle = wrap_to_0_2pi(last_angle + dt * frequency * 2. * math.pi)
     fraction_led, intensity = intersect_angle_frame(northclockwise2math(angle), True, True)
     last_angle = angle
 
@@ -606,8 +605,8 @@ def run_clock(neon=False, linear=True):
     timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
 
 
-def run_spin(color):
-    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin(color))
+def run_spin(color, frequency=0.25):
+    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin(color, frequency))
 
 
 def run_larson_scanner(cardinal, primary, secondary):
