@@ -1,7 +1,6 @@
-from machine import Pin, Timer
+from machine import Pin, Timer, bitstream
 import utime
 import math
-from esp import neopixel_write
 
 from common import *
 import colors
@@ -69,9 +68,15 @@ larson_index = 0
 larson_dir = 1
 larson_last_dir = -1
 
+
+def neopixel_write(pin, buffer):
+    # low-level driving of a NeoPixel changed from esp.neopixel_write to machine.bitstream
+    bitstream(pin, 0, (400, 850, 800, 450), buffer)
+
+
 # init neopixels
 pin = Pin(13, Pin.OUT)
-neopixel_write(pin, leds_0, True)
+neopixel_write(pin, leds_0)
 
 
 # ##############################################################################
@@ -182,13 +187,13 @@ def get_border_intersections(width, height, axis):
 
 def fade_to(steps=10, sleep=1):
     if steps <= 1:
-        neopixel_write(pin, leds_1, True)
+        neopixel_write(pin, leds_1)
         return
     for i in range(steps):
         t = (i + 1) / steps
         for j in range(n * 4):  # iterate all
             leds_0[j] = int(interpolate(leds_0[j], leds_1[j], t))
-        neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0)
         utime.sleep_ms(sleep)
 
 
@@ -256,7 +261,7 @@ def ramp_up():
 
     leds_0 = bytearray(n*4)
     set_area2(center/leds_per_cm, width/3, ramp_color_2, leds_0)
-    neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0)
 
     utime.sleep_ms(200)
 
@@ -265,12 +270,12 @@ def ramp_up():
         i2 = (center + (i % n)) % n
         leds_0[i1 * 4:i1 * 4 + 4] = ramp_color_1
         leds_0[i2 * 4:i2 * 4 + 4] = ramp_color_1
-        neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0)
         utime.sleep_ms(12)
     for i in range(16):
         color = interpolate_rgbw(ramp_color_1, ramp_color_3, (i + 1) / 16)
         set_area2(cardinals['north'][0]/leds_per_cm, width, color, leds_0)
-        neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0)
         utime.sleep_ms(1)
     utime.sleep(1)
     fade_to()
@@ -336,7 +341,7 @@ def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
         leds_0 = bytearray(n * 4)
         index = i % (n * 4)
         leds_0[index] = brightness
-        neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0)
         utime.sleep_ms(timeout_ms)
     off()
 
@@ -347,7 +352,7 @@ def cycle_color(color, n_cycles=1, timeout_ms=1):
         leds_0 = bytearray(n * 4)
         index = (i % n) * 4
         leds_0[index:index + 4] = bytearray(color)
-        neopixel_write(pin, leds_0, True)
+        neopixel_write(pin, leds_0)
         utime.sleep_ms(timeout_ms)
     off()
 
@@ -418,7 +423,7 @@ def solun_demo():
             draw_solun_positions(coords, (year, month, day, h, m, 0, weekday, yearday), leds_0)
 
             # apply
-            neopixel_write(pin, leds_0, True)
+            neopixel_write(pin, leds_0)
 
     paris('leds_1')
     fade_to()
@@ -455,7 +460,7 @@ def spin(color):
         fading = interpolate_rgbw([0, 0, 0, 0], beam_color, t)
         leds_0[index * 4:index * 4 + 4] = bytearray(fading)
 
-    neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0)
 
 
 def larson_scanner(primary, secondary):
@@ -476,7 +481,7 @@ def larson_scanner(primary, secondary):
         if larson_bounds[0] <= b and b < larson_bounds[1]:
             leds_1[b * 4:b * 4 + 4] = bytearray(fading)
 
-    neopixel_write(pin, leds_1, True)
+    neopixel_write(pin, leds_1)
 
     larson_last_dir = larson_dir
     larson_index += larson_dir
@@ -559,7 +564,7 @@ def clock(neon, linear):
 
     last_second = s
 
-    neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0)
 
 
 # ##############################################################################
@@ -568,7 +573,7 @@ def set_color(count, color):
     global leds_0
     count = clamp(count, 0, n)
     leds_0 = bytearray(count * color + (n - 1) * (0, 0, 0, 0))
-    neopixel_write(pin, leds_0, True)
+    neopixel_write(pin, leds_0)
 
 
 def fade_random():

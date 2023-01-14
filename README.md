@@ -99,8 +99,8 @@ ________________________________
 Clear and flash firmware (press/release RESET while holding GPIO0 button to put it into firmware flashing mode)
 
 ```
-esptool.py --port /dev/tty.usbserial-XXXXXXXX erase_flash
-esptool.py --port /dev/tty.usbserial-XXXXXXXX --baud 460800 write_flash --flash_size=detect 0 esp8266-20210202-v1.14.bin
+python -m esptool --port /dev/tty.usbserial-XXXXXXXX erase_flash
+python -m esptool --port /dev/tty.usbserial-XXXXXXXX --baud 460800 write_flash --flash_size=detect 0 esp8266-20220618-v1.19.1.bin
 ```
 
 Keep the USB connection for the next step.
@@ -128,12 +128,7 @@ In order to do so, clone the [MicroPython repository](https://github.com/micropy
 git clone https://github.com/micropython/micropython
 ```
 
-Checkout the version according to the firmware you just flashed:
-
-```
-cd micropython
-git checkout v1.14
-```
+You should checkout the version according to the firmware you just flashed.
 
 ### Build Cross Compiler
 
