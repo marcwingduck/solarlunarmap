@@ -68,6 +68,8 @@ larson_index = 0
 larson_dir = 1
 larson_last_dir = -1
 
+equinox_or_solstice = -1
+
 
 def neopixel_write(pin, buffer):
     # low-level driving of a NeoPixel changed from esp.neopixel_write to machine.bitstream
@@ -399,6 +401,11 @@ def draw_solun_positions(lat_long_deg, utc_time, leds):
 def paris_solun():
     global leds_1
     paris('leds_1')
+
+    for i in range(equinox_or_solstice + 1):
+        cardinal = list(cardinals.values())[i]
+        set_area2(cardinal[0]/leds_per_cm, 5, colors.colors['purple'], leds_1)
+
     draw_solun_positions(coords, utime.localtime(), leds_1)
     fade_to(4)
 
@@ -436,7 +443,7 @@ def spin(color, frequency):
     global leds_0, last_millis, last_angle
 
     tail = 24
-    
+
     now_millis = utime.ticks_ms()
     dt = (now_millis - last_millis) / 1000.
     last_millis = now_millis
@@ -589,6 +596,11 @@ def run_random():
 
 
 def run_solun():
+    global equinox_or_solstice
+
+    # calculate once if it is equinox or solstice
+    equinox_or_solstice = solun.is_equinox_or_solstice(utime.localtime())
+
     paris_solun()
     timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
 

@@ -1,9 +1,77 @@
-# equations from https://www.aa.quae.nl/en/reken.html
+# equations from https://www.aa.quae.nl/en/reken.html and
+# Jean Meeus, Astronomical Algorithms, Second Edition, 1998
 
 import math
 from common import wrap_to_pi, wrap_to_0_2pi
 
 epsilon = math.radians(23.4393)  # obliquity of the ecliptic (tilt of the earth's axis of rotation)
+
+table_27c = [[485, 324.96, 1934.136],
+             [203, 337.23, 32964.467],
+             [199, 342.08, 20.186],
+             [182, 27.85, 445267.112],
+             [156, 73.14, 45036.886],
+             [136, 171.52, 22518.443],
+             [77, 222.54, 65928.934],
+             [74, 296.72, 3034.906],
+             [70, 243.58, 9037.513],
+             [58, 119.81, 33718.147],
+             [52, 297.17, 150.678],
+             [50, 21.02, 2281.226],
+             [45, 247.54, 29929.562],
+             [44, 325.15, 31555.956],
+             [29, 60.93, 4443.417],
+             [18, 155.12, 67555.328],
+             [17, 288.79, 4562.452],
+             [16, 198.04, 62894.029],
+             [14, 199.76, 31436.921],
+             [12, 95.39, 14577.848],
+             [12, 287.11, 31931.756],
+             [12, 320.81, 34777.259],
+             [9, 227.73, 1222.114],
+             [8, 15.45, 16859.074]]
+
+
+equinox_solstices = [[2451623.80984, 365242.37404,  0.05169, -0.00411, -0.00057],  # Mar equinox  (beginning of astronomical spring)
+                     [2451716_56767, 365241.62603,  0.00325, 0.00888, -0.00030],   # Jun solstice (beginning of astronomical summer)
+                     [2451810.21715, 365242.01767, -0.11575, 0.00337, 0.00078],    # Sep equinox  (beginning of astronomical autumn)
+                     [2451900.05952, 365242.74049, -0.06223, -0.00823, 0.00032]]   # Dec solstice (beginning of astronomical winter)
+
+
+def is_equinox_or_solstice(date_time):
+
+    year, month, day, hour, minute, second, weekday, yearday = date_time
+    julian_day_number = calc_julian_date(year, month, day, hour, minute, second)
+
+    Y = (year-2000)/1000
+    Y2 = Y*Y
+    Y3 = Y*Y2
+    Y4 = Y*Y3
+
+    for i, (a, b, c, d, e) in enumerate(equinox_solstices):
+        JDE0 = a+b*Y+c*Y2+d*Y3+e*Y4
+        JDE = calc_equinox_solstice(JDE0)
+        n = JDE - 2451545.
+        if math.floor(n) == math.floor(julian_day_number):
+            return i
+
+    return -1
+
+
+def calc_equinox_solstice(JDE0):
+    T = (JDE0-2451545.0)/36525.0
+    W = 35999.373 * T - 2.47
+    W_rad = math.radians(W)
+    delta_lambda = 1 + 0.00334 * math.cos(W_rad) + 0.0007 * math.cos(2*W_rad)
+
+    S = 0.
+    for row in table_27c:
+        A, B, C = row
+        S += A * math.cos(math.radians(B + C * T))
+
+    JDE = JDE0 + (0.00001*S)/delta_lambda
+
+    return JDE
 
 
 def calc_julian_date(year, month, day, hour=0, minute=0, second=0):
@@ -21,9 +89,9 @@ def calc_julian_date(year, month, day, hour=0, minute=0, second=0):
     # julian day
     # jd = c + day + e + f - 1524.5
     # number of days since Greenwich noon, Terrestrial Time, on 1 January 2000
-    #n = jd - 2451545.
+    # n = jd - 2451545.
     # julian centuries since 2000
-    #t = n / 36525.
+    # t = n / 36525.
 
     # hotfix
     # int
