@@ -4,14 +4,14 @@ I have upgraded an almost 50 year old map of Paris to display solar/lunar positi
 
 [![Solar/Lunar Map](https://www.marclieser.de/data/content/interests/solarmap/solarmap_ytcue.jpg)](http://www.youtube.com/watch?v=3vjASYzq22o "Solar/Lunar Map")
 
-Since I could not find a (free) web service to query solar and lunar azimuth and elevation, I used equations from [https://www.aa.quae.nl/en/reken.html] to do the calculations myself.
+Since I could not find a (free) web service to query solar and lunar azimuth and elevation, I used equations from [Meeus, Jean. Astronomical Algorithms, 1998](https://shopatsky.com/products/astronomical-algorithms-2nd-edition) and [Astronomy Answers](https://www.aa.quae.nl/en/reken.html) to do the calculations myself.
 The accuracy is very poor and there are probably bugs.
 
 The lack of double precision of the ESP8266 means that basic astronomical calculations cannot be performed with the necessary precision.
 For example, the Julian day number (JDN) cannot actually be calculated to the day.
 I have currently hotfixed this specific problem by breaking the equation into integer and floating point parts, but all following equations lack accuracy and in the long run I will just upgrade to an ESP32.
 
-Next to the solar/lunar map I have added modes to display the current time and some random animations.
+Next to the solar/lunar map I have added modes to display the current time in the style of an analog clock style and some random animations as well as static ambient lighting.
 
 The map can be controlled from your home wifi through a [web interface](http://solar.marclieser.de/) that has its own [repository](https://github.com/marcwingduck/solar_map_web).
 
@@ -24,7 +24,7 @@ The map can be controlled from your home wifi through a [web interface](http://s
 
 The worst case consumption of the 180 NeoPixels I used for this project is
 
-4 LEDs (RGBW) x 0.02 A (max current per LED) x 180 NeoPixels = 14.4 A
+    4 LEDs (RGBW) x 0.02 A (max current per LED) x 180 NeoPixels = 14.4 A
 
 The ESP8266 consumes up to 250 mA.
 So the worst case estimate amounts to 14.65 A, which will never be reached in practice.
@@ -32,13 +32,13 @@ Nevertheless, I opted for the next larger power supply (15 A) because it will ru
 
 So this 15A/5V power supply should be more than enough
 
-* [Sufficient Power Supply](https://www.meanwell-web.com/en-gb/ac-dc-single-output-enclosed-power-supply-output-rsp--75--5)
+* [Power Supply](https://www.meanwell-web.com/en-gb/ac-dc-single-output-enclosed-power-supply-output-rsp--75--5)
 
 ### Electronic Components
 
 * 1000 uF capacitor connecting the + and - terminals of the power supply to prevent initial current peaks from damaging other parts of the circuit
 * 340 Ohm data line resistor close to the first NeoPixel to help prevent voltage spikes damaging it (see the [Adafruit NeoPixel Überguide](https://learn.adafruit.com/adafruit-neopixel-uberguide/powering-neopixels]), they recommend 300 to 500 Ohm)
-* 74AHCT125N level-shifter from 3 V board logic to 5 V NeoPixel data signal
+* [74AHCT125N](https://www.adafruit.com/product/1787) level-shifter from 3 V board logic to 5 V NeoPixel data signal
 * [15 A Fuse](https://www.reichelt.de/feinsicherung-6-3x32mm-flink-us-norm-15a-rnd-170-00087-p204868.html?&nbc=1) and a [Fuse Holder](https://www.reichelt.de/sicherungshalter-6-3-x-32-20-a-32-v-kabel-litt-01550120hxu-p229211.html?&nbc=1)
 
 Of course some cables are required. I soldered the microcontroller and the level-shifter on a prototyping board.
@@ -47,7 +47,7 @@ Of course some cables are required. I soldered the microcontroller and the level
 
 ### WiFi Connection
 
-Create a file named `connection` that contains one line `ssid:passwd`. This later enables the project to access the internet in order to retrieve date and time for the solar/lunar position calculations and (obviously) the clock visualization.
+Create a file named `connection` that contains one line `ssid:passwd`. This later enables the project to access the internet in order to retrieve date and time for the solar/lunar position calculations and the clock visualization.
 
 ### Frame Constants
 
@@ -150,6 +150,6 @@ Clone WebREPL to have an offline version or use the cached online version:
 * [Clone this Repository](https://github.com/micropython/webrepl)
 * [Cache this Website](http://micropython.org/webrepl/)
 
-Connect to the MicroPython-XXXXXX WiFi network using the password set or default password micropythoN.
+Connect to the MicroPython-XXXXXX WiFi network using the password set or default password `micropythoN`.
 
 Transfer `main.py` and compiled modules as well as the `connection` file to ESP8266 using WebREPL.
