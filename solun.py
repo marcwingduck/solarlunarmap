@@ -33,13 +33,12 @@ table_27c = [[485, 324.96, 1934.136],
 
 
 equinox_solstices = [[2451623.80984, 365242.37404,  0.05169, -0.00411, -0.00057],  # Mar equinox  (beginning of astronomical spring)
-                     [2451716_56767, 365241.62603,  0.00325, 0.00888, -0.00030],   # Jun solstice (beginning of astronomical summer)
+                     [2451716.56767, 365241.62603,  0.00325, 0.00888, -0.00030],   # Jun solstice (beginning of astronomical summer)
                      [2451810.21715, 365242.01767, -0.11575, 0.00337, 0.00078],    # Sep equinox  (beginning of astronomical autumn)
                      [2451900.05952, 365242.74049, -0.06223, -0.00823, 0.00032]]   # Dec solstice (beginning of astronomical winter)
 
 
 def is_equinox_or_solstice(date_time):
-
     year, month, day, hour, minute, second, weekday, yearday = date_time
     julian_day_number = calc_julian_date(year, month, day, hour, minute, second)
 
