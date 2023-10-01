@@ -9,4 +9,4 @@ def update_time():
             break
         except OSError:
             utime.sleep_ms(10)
-    print('time:', utime.localtime())
+    # print('time:', utime.localtime())

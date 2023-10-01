@@ -17,7 +17,7 @@ def connect():
 
     sta_if = network.WLAN(network.STA_IF)
     if not sta_if.isconnected():
-        print('connecting to network...')
+        # print('connecting to network...')
         sta_if.active(True)
         sta_if.connect(ssid, passwd)
         deadline = utime.ticks_add(utime.ticks_ms(), 10000)

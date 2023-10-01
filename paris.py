@@ -221,7 +221,7 @@ def set_area2(center, size, primary, leds):
     start = (center - size/2) % (n / leds_per_cm)  # cm
     n_leds = int(size * leds_per_cm) + 1  # leds
     frac, frac_led_index = math.modf(start * leds_per_cm)  # leds
-    frac_led_index = int(frac_led_index)  # index that lies not yet in the area
+    # frac_led_index = int(frac_led_index)  # index that lies not yet in the area
     for i in range(n_leds):
         cm = (i + (1-frac)) / leds_per_cm  # cm
         index = int(round((start + cm) * leds_per_cm)) % n  # i, leds
@@ -337,7 +337,19 @@ def set_vertical_interp(c1, c2):
     fade_to()
 
 
-def cycle_channels(brightness=255, n_cycles=1, timeout_ms=1):
+def test_led(led_id, brightness=1, n_times=2, timeout_ms=300):
+    global leds_0
+    for _ in range(n_times):
+        for i in range(4):
+            leds_0 = bytearray(n * 4)
+            index = (led_id*4) + i
+            leds_0[index] = brightness
+            neopixel_write(pin, leds_0)
+            utime.sleep_ms(timeout_ms)
+    off()
+
+
+def cycle_channels(brightness=255, n_cycles=1, timeout_ms=100):
     global leds_0
     for i in range(n * 4 * n_cycles):
         leds_0 = bytearray(n * 4)
