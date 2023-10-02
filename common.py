@@ -36,3 +36,11 @@ def northclockwise2math(a):
     a_pi = a_pi + math.pi / 2.
     # wrap to -pi,pi
     return wrap_to_pi(a_pi)
+
+
+def interpolate_rgbw(a, b, t):
+    # return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)], faster:
+    c = []
+    for i in range(4):
+        c.append(int(interpolate(a[i], b[i], t)))
+    return c

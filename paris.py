@@ -1,41 +1,17 @@
 from machine import Pin, Timer, bitstream
 import utime
 import math
+from frame import *
 
 from common import *
 import colors
 import solun
 import timing
 
-# number of leds
-n = 180
-
-# numbers of leds in width and height
-cols = 54
-rows = 36
-
-leds_per_cm = 0.6
-
 coords = (48.860536, 2.332237)  # paris
 # coords = (50.038333, 8.193611)  # home
 
 utc_offset = 2
-
-# width and height of the frame in meters
-width = cols/leds_per_cm  # 90 cm
-height = rows/leds_per_cm  # 60 cm
-
-# led indices at intercardinal directions
-south_east = 0
-south_west = cols
-north_west = cols + rows
-north_east = 2 * cols + rows
-
-# map from cardinal direction to tuple containing (center index, number of pixels, (start, end))
-cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_east)),
-             'east': ((north_east + n) // 2, rows, (north_east, n)),
-             'south': ((south_west + south_east) // 2, cols, (south_east, south_west)),
-             'west': ((south_west + north_west) // 2, rows, (south_west, north_west))}
 
 # default colors (grb!!)
 color_off = bytearray(4)
@@ -71,6 +47,9 @@ larson_last_dir = -1
 equinox_or_solstice = -1
 
 
+# ##############################################################################
+
+
 def neopixel_write(pin, buffer):
     # low-level driving of a NeoPixel changed from esp.neopixel_write to machine.bitstream
     bitstream(pin, 0, (400, 850, 800, 450), buffer)
@@ -79,109 +58,6 @@ def neopixel_write(pin, buffer):
 # init neopixels
 pin = Pin(13, Pin.OUT)
 neopixel_write(pin, leds_0)
-
-
-# ##############################################################################
-
-
-def interpolate_rgbw(a, b, t):
-    # return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)], faster:
-    c = []
-    for i in range(4):
-        c.append(int(interpolate(a[i], b[i], t)))
-    return c
-
-
-# ##############################################################################
-
-
-def angle_to_unwind(angle):
-    line = cross((0., 0., 1.), (math.cos(angle), math.sin(angle), 1.))
-    result = get_border_intersections(width, height, line)
-    if result:
-        side, (x, y) = result
-        # unwind to distance on the stripe
-        dist = 0
-        if side == 'south':
-            dist = -x + width / 2.
-        elif side == 'west':
-            dist = width + y + height / 2.
-        elif side == 'north':
-            dist = width + height + x + width / 2.
-        elif side == 'east':
-            dist = 2 * width + height - y + height / 2.
-        return dist, (x, y)
-    return None
-
-
-def intersect_angle_frame(angle, sub=False, norm=False):
-    result = angle_to_unwind(angle)
-    if result:
-        distance, (x, y) = result
-        n_leds = distance * leds_per_cm
-        if not sub:
-            n_leds = int(n_leds)  # round down (0,...,n-1)
-        if norm:  # closest led is 1
-            return n_leds, (min(height, width) / 2.) / math.sqrt(x*x+y*y)
-        return n_leds  # flattened number of leds with fraction
-    return None
-
-
-def get_distance_intensity(i):
-    side = ''
-    x = 0
-    y = 0
-    for e in cardinals:
-        side_range = cardinals[e][2]
-        if side_range[0] <= i and i < side_range[1]:
-            side = e
-            break
-    if side == 'south':
-        j = float(cols-i)
-        x = j/cols * width - width/2.
-        y = -height/2.
-    if side == 'west':
-        j = float(i-cols)
-        x = -width/2.
-        y = j/rows * height - height/2.
-    if side == 'north':
-        j = float(i-cols-rows)
-        x = j/cols * width - width/2.
-        y = height/2.
-    if side == 'east':
-        j = float(rows-(i-cols-rows-cols))
-        x = width/2.
-        y = j/cols * height - height/2.
-    norm = math.sqrt(x*x+y*y)
-    intensity = (height/2.) / norm
-    return intensity
-
-
-def get_border_intersections(width, height, axis):
-    side_map = {0: 'north', 1: 'east', 2: 'south', 3: 'west'}
-    w2, h2 = width / 2., height / 2.
-    frame = [(-w2, h2, 1.),  # north west
-             (w2, h2, 1.),  # north east
-             (w2, -h2, 1.),  # south east
-             (-w2, -h2, 1.)]  # south west
-
-    for i in range(4):
-        # build vecs for north, east, south, west
-        line = cross(frame[i], frame[(i + 1) % 4])
-        # intersect
-        s = cross(axis, line)
-        if math.fabs(s[2]) < 1e-3:  # lines are parallel
-            continue
-        if math.fabs(s[0]) < 1e-3 and math.fabs(s[1]) < 1e-3:  # lines are equal
-            continue
-        if s[2] > 0.:  # intersect on opposite side
-            continue
-        # normalize
-        x, y = s[0] / s[2], s[1] / s[2]
-        # check if intersection lies within the boundaries of the frame
-        if -w2 - 1e-3 < x < w2 + 1e-3 and -h2 - 1e-3 < y < h2 + 1e-3:
-            return side_map[i], (x, y)
-    return None
 
 
 # ##############################################################################
@@ -217,21 +93,6 @@ def set_circular_background(color):
     fade_to()
 
 
-def set_area2(center, size, primary, leds):
-    start = (center - size/2) % (n / leds_per_cm)  # cm
-    n_leds = int(size * leds_per_cm) + 1  # leds
-    frac, frac_led_index = math.modf(start * leds_per_cm)  # leds
-    # frac_led_index = int(frac_led_index)  # index that lies not yet in the area
-    for i in range(n_leds):
-        cm = (i + (1-frac)) / leds_per_cm  # cm
-        index = int(round((start + cm) * leds_per_cm)) % n  # i, leds
-        t = cm/size  # interpolate unit circle
-        k = math.sin(t*math.pi)  # intensity factor
-        cc = leds[index * 4:index * 4 + 4]
-        color = interpolate_rgbw(cc, primary, k)
-        leds[index * 4:index * 4 + 4] = bytearray(color)
-
-
 def set_area(center, size, primary, secondary, leds):
     if size == 1:
         leds[center * 4:center * 4 + 4] = bytearray(primary)
@@ -247,6 +108,36 @@ def set_area(center, size, primary, secondary, leds):
         color = interpolate_rgbw(primary, secondary, t)
         index = i % n
         leds[index * 4:index * 4 + 4] = bytearray(color)
+
+
+def set_area2(center, size, primary, leds):
+    """
+    Parameters:
+    ----------------
+    center : float
+        center cm on strip
+    size : float
+        width of the area in cm
+    primary : tuple
+        primary color
+    leds : array
+        current led colors of the whole strip
+        used for interpolation
+    """
+    start = (center - size/2) % strip_length_cm  # cm
+    start += led_offset_cm
+    # leds that fully lie in the area to be covered
+    n_leds = int(math.ceil(size * leds_per_cm))  # leds
+    frac, frac_led_index = math.modf(start * leds_per_cm)  # leds
+    frac_led_index = int(frac_led_index)  # first led covering the area
+    for i in range(n_leds):
+        cm = (i + (1-frac)) / leds_per_cm  # cm
+        t = cm/size  # interpolate unit circle
+        k = math.sin(t*math.pi)  # intensity factor
+        led_index = (frac_led_index+i) % n
+        current_color = leds[led_index * 4:led_index * 4 + 4]
+        color = interpolate_rgbw(current_color, primary, k)
+        leds[led_index * 4:led_index * 4 + 4] = bytearray(color)
 
 
 # ##############################################################################
@@ -337,6 +228,9 @@ def set_vertical_interp(c1, c2):
     fade_to()
 
 
+# ##############################################################################
+
+
 def test_led(led_id, brightness=1, n_times=2, timeout_ms=300):
     global leds_0
     for _ in range(n_times):
@@ -390,7 +284,7 @@ def paris(leds_str):
 def draw_solun_positions(lat_long_deg, utc_time, leds):
     # moon
     lunar_azim, lunar_elev = solun.calc_lunar_position(lat_long_deg, utc_time)
-    lunar_result = angle_to_unwind(northclockwise2math(lunar_azim))
+    lunar_result = unwind_angle(northclockwise2math(lunar_azim))
     if lunar_result and lunar_elev > 0.:
         distance, (x, y) = lunar_result
         f1 = clamp(math.degrees(lunar_elev), 0., 18.5) / 18.5
@@ -400,7 +294,7 @@ def draw_solun_positions(lat_long_deg, utc_time, leds):
         set_area2(distance, 1 + f2 * 5, color, leds)
     # sun
     solar_azim, solar_elev = solun.calc_solar_position(lat_long_deg, utc_time)
-    solar_result = angle_to_unwind(northclockwise2math(solar_azim))
+    solar_result = unwind_angle(northclockwise2math(solar_azim))
     if solar_result and solar_elev > 0.:
         distance, (x, y) = solar_result
         f1 = clamp(math.degrees(solar_elev), 0., 23.45) / 23.45
@@ -435,7 +329,7 @@ def solun_demo():
 
             # hour
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
-            distance = angle_to_unwind(northclockwise2math(angle))[0]
+            distance = unwind_angle(northclockwise2math(angle))[0]
             set_area2(distance, 4, [158, 81, 188, 0], leds_0)
 
             # solar/lunar
@@ -461,7 +355,9 @@ def spin(color, frequency):
     last_millis = now_millis
 
     angle = wrap_to_0_2pi(last_angle + dt * frequency * 2. * math.pi)
-    fraction_led, intensity = intersect_angle_frame(northclockwise2math(angle), True, True)
+    cm_on_strip, (x, y) = unwind_angle(northclockwise2math(angle))
+    intensity = (min(height, width) / 2.) / math.sqrt(x*x+y*y)
+    fraction_led = cm_on_strip * leds_per_cm
     last_angle = angle
 
     frac, frac_led_index = math.modf(fraction_led)
@@ -516,7 +412,7 @@ def clock(neon, linear):
     h = (h + utc_offset) % 24
     a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
 
-    h_dist = angle_to_unwind(northclockwise2math(a_h))[0]
+    h_dist = unwind_angle(northclockwise2math(a_h))[0]
 
     if neon:
         if last_minute != m:  # switch color
@@ -530,10 +426,10 @@ def clock(neon, linear):
 
         seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
         minutes = (m + seconds / 60.) / 60. * 2. * math.pi
-        h_i = intersect_angle_frame(northclockwise2math(a_h))  # 12 o'clock
-        m_i = intersect_angle_frame(northclockwise2math(minutes))  # 12 o'clock
+        h_i = int(unwind_angle(northclockwise2math(a_h))[0])
+        m_i = int(unwind_angle(northclockwise2math(minutes))[0])
 
-        start = intersect_angle_frame(northclockwise2math(0))  # 12 o'clock
+        start = int(unwind_angle(northclockwise2math(0))[0])  # 12 o'clock
 
         frac_led_index = 0  # partially lit led index
         frac = 0.  # interpolation factor
@@ -546,7 +442,7 @@ def clock(neon, linear):
             frac_led_index = (start + n_leds) % n
         else:  # clock  hand (faster at edges)
             a_s = seconds / 60. * 2. * math.pi
-            fraction_led = intersect_angle_frame(northclockwise2math(a_s), True)
+            fraction_led = unwind_angle(northclockwise2math(a_s))[0]
             frac, frac_led_index = math.modf(fraction_led)
             frac_led_index = int(frac_led_index)
             n_leds = (frac_led_index - start) % n
@@ -572,8 +468,8 @@ def clock(neon, linear):
         a_m = m / 60. * 2. * math.pi
         a_s = s / 60. * 2. * math.pi
 
-        m_dist = angle_to_unwind(northclockwise2math(a_m))[0]
-        s_dist = angle_to_unwind(northclockwise2math(a_s))[0]
+        m_dist = unwind_angle(northclockwise2math(a_m))[0]
+        s_dist = unwind_angle(northclockwise2math(a_s))[0]
 
         leds_0 = bytearray(n * list(color_ambient))
         set_area2(m_dist, 5, bytearray((60, 0, 40, 0)), leds_0)
@@ -587,10 +483,11 @@ def clock(neon, linear):
 
 # ##############################################################################
 
-def set_color(count, color):
+
+def set_color(led_index, color):
     global leds_0
-    count = clamp(count, 0, n)
-    leds_0 = bytearray(count * color + (n - 1) * (0, 0, 0, 0))
+    led_index = clamp(led_index, 0, n)
+    leds_0 = bytearray(led_index * color + (n - 1) * (0, 0, 0, 0))
     neopixel_write(pin, leds_0)
 
 
