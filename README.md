@@ -51,7 +51,7 @@ Create a file named `connection` that contains one line `ssid:passwd`. This late
 
 ### Frame Constants
 
-Variables in `paris.py` that need to be adjusted according to your frame.
+Variables in `frame.py` that need to be adjusted according to your frame.
 
 The number of LEDs
 
