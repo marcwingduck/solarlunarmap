@@ -6,9 +6,9 @@ def clamp(v, a, b):
 
 
 def interpolate(a, b, t):
-    if t < 0. + 1e-3:
+    if t < 0.01:
         return a
-    if t > 1. - 1e-3:
+    if t > 0.99:
         return b
     return a + t * (b - a)
 
@@ -30,16 +30,12 @@ def wrap_to_0_2pi(a):
 
 
 def northclockwise2math(a):
-    # clockwise to counter clockwise
-    a_pi = 2. * math.pi - a
-    # add 90 deg offset from north to west
-    a_pi = a_pi + math.pi / 2.
-    # wrap to -pi,pi
-    return wrap_to_pi(a_pi)
+    a_pi = 2. * math.pi - a  # clockwise to counter clockwise
+    a_pi += math.pi / 2.  # add 90 deg offset from north to west
+    return wrap_to_pi(a_pi)  # wrap to -pi,pi
 
 
 def interpolate_rgbw(a, b, t):
-    # return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)], faster:
     c = []
     for i in range(4):
         c.append(int(interpolate(a[i], b[i], t)))

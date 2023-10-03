@@ -1,5 +1,6 @@
-# equations from https://www.aa.quae.nl/en/reken.html and
-# Jean Meeus, Astronomical Algorithms, Second Edition, 1998
+# equations and tables from
+# - https://www.aa.quae.nl/en/reken.html
+# - Jean Meeus, Astronomical Algorithms, Second Edition, 1998
 
 import math
 from common import wrap_to_pi, wrap_to_0_2pi

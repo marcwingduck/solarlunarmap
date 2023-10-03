@@ -8,15 +8,13 @@ rows, cols = 36, 54
 # number of leds
 n = 2*(cols+rows)
 
-leds_per_cm = 0.5
+leds_per_cm = 0.6
 led_offset_cm = (1./leds_per_cm)/2.
 strip_length_cm = n / leds_per_cm
 
 # width and height of the frame in meters
 width = cols/leds_per_cm  # 90 cm
 height = rows/leds_per_cm  # 60 cm
-
-print(width, height)
 
 # led indices at intercardinal directions
 south_east = 0
@@ -29,22 +27,6 @@ cardinals = {'north': ((north_east + north_west) // 2, cols, (north_west, north_
              'east': ((north_east + n) // 2, rows, (north_east, n)),
              'south': ((south_west + south_east) // 2, cols, (south_east, south_west)),
              'west': ((south_west + north_west) // 2, rows, (south_west, north_west))}
-
-# current leds
-leds_0 = bytearray(n * 4)
-
-# leds to be faded to
-leds_1 = bytearray(n * 4)
-
-
-def interpolate_rgbw(a, b, t):
-    # faster than
-    # return [int(round(interpolate(x, y, t))) for x, y in zip(a, b)]
-
-    c = []
-    for i in range(4):
-        c.append(int(interpolate(a[i], b[i], t)))
-    return c
 
 
 def unwind_angle(angle):
@@ -65,7 +47,7 @@ def unwind_angle(angle):
     """
     side_map = {0: 'north', 1: 'east', 2: 'south', 3: 'west'}
 
-    line = cross((0., 0., 1.), (math.cos(angle), math.sin(angle), 1.))
+    axis = cross((0., 0., 1.), (math.cos(angle), math.sin(angle), 1.))
 
     w2, h2 = width / 2., height / 2.
     frame = [(-w2, h2, 1.),  # north west
@@ -75,7 +57,7 @@ def unwind_angle(angle):
 
     for i in range(4):
         # build vecs for north, east, south, west
-        axis = cross(frame[i], frame[(i + 1) % 4])
+        line = cross(frame[i], frame[(i + 1) % 4])
         # intersect
         s = cross(axis, line)
 
@@ -106,7 +88,7 @@ def unwind_angle(angle):
                 dist = width + height + x + width / 2.
             elif side_map[i] == 'east':
                 dist = 2 * width + height - y + height / 2.
-            return led_offset_cm+dist, (x, y)
+            return dist, (x, y)
 
     return None
 

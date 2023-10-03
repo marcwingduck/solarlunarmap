@@ -1,95 +1,114 @@
 from machine import Pin, Timer, bitstream
 import utime
 import math
-from frame import *
 
 from common import *
-import colors
-import solun
+from frame import *
 import timing
-
-coords = (48.860536, 2.332237)  # paris
-# coords = (50.038333, 8.193611)  # home
+import colors
+import solunar
 
 utc_offset = 2
 
-# default colors (grb!!)
+# solunar
+equinox_or_solstice = -1
+coords = (48.860536, 2.332237)  # paris
+# coords = (50.038333, 8.193611)  # home
+
+
+# default colors (grb)
 color_off = bytearray(4)
 color_ambient = bytearray((1, 1, 0, 8))
 color_river = bytearray((10, 0, 15, 0))
 
-# current leds
-leds_0 = bytearray(n * 4)
+# displayed led colors
+leds0 = bytearray(n * 4)
 
-# leds to be faded to
-leds_1 = bytearray(n * 4)
+# led colors to be faded to
+leds1 = bytearray(n * 4)
+
+# dimmed, drawn values, allocated once
+buffer = bytearray(n * 4)
 
 # update timer
 timer = Timer(-1)
 
-# neon clock utils
-last_minute = -1
-last_second = -1
+# neon clock globals
 start_second = 0
+last_second = -1
+last_minute = -1
 clock_color_1 = colors.colors['cyan']    # start neon clock with
 clock_color_2 = colors.colors['orange']  # a nice combination
 clock_old_hands = clock_color_2
 clock_new_hands = clock_color_2
 
+# spin globals
 last_angle = 0
 last_millis = 0
 
+# larson scanner globals
 larson_bounds = (0, n)
 larson_index = 0
 larson_dir = 1
 larson_last_dir = -1
 
-equinox_or_solstice = -1
+dimmer = 0.5
 
 
 # ##############################################################################
 
 
-def neopixel_write(pin, buffer):
+def neopixel_write(pin, data):
     # low-level driving of a NeoPixel changed from esp.neopixel_write to machine.bitstream
+    for i in range(n * 4):
+        buffer[i] = int(dimmer * data[i])
     bitstream(pin, 0, (400, 850, 800, 450), buffer)
 
 
 # init neopixels
 pin = Pin(13, Pin.OUT)
-neopixel_write(pin, leds_0)
+neopixel_write(pin, leds0)
 
 
 # ##############################################################################
 
 
 def fade_to(steps=10, sleep=1):
+    global leds0
+
     if steps <= 1:
-        neopixel_write(pin, leds_1)
+        leds0 = leds1
+        neopixel_write(pin, leds0)
         return
+
     for i in range(steps):
         t = (i + 1) / steps
         for j in range(n * 4):  # iterate all
-            leds_0[j] = int(interpolate(leds_0[j], leds_1[j], t))
-        neopixel_write(pin, leds_0)
+            leds0[j] = int(interpolate(leds0[j], leds1[j], t))
+        neopixel_write(pin, leds0)
         utime.sleep_ms(sleep)
 
 
 # ##############################################################################
 
 
+def apply_dimmer(value):
+    global dimmer
+    dimmer = clamp(value, 0., 1.)
+    neopixel_write(pin, leds0)
+    # fade_to()
+
+
 def off():
-    global leds_1
-    leds_1 = bytearray(n * 4)
+    leds1[:] = bytearray(n * 4)
     fade_to()
 
 
 def set_circular_background(color):
-    global leds_1
     for i in range(n):
         intensity = get_distance_intensity(i)
         icolor = [int(intensity * c) for c in color]
-        leds_1[i * 4:i * 4 + 4] = bytearray(icolor)
+        leds1[i * 4:i * 4 + 4] = bytearray(icolor)
     fade_to()
 
 
@@ -144,7 +163,6 @@ def set_area2(center, size, primary, leds):
 
 
 def ramp_up():
-    global leds_0
     center = cardinals['south'][0]
     size = (cols + 2 * rows)
     d = (size + 1) % 2
@@ -152,25 +170,25 @@ def ramp_up():
     ramp_color_2 = bytearray((0, 0, 0, 50))
     ramp_color_3 = bytearray((0, 0, 0, 200))
 
-    leds_0 = bytearray(n*4)
-    set_area2(center/leds_per_cm, width/3, ramp_color_2, leds_0)
-    neopixel_write(pin, leds_0)
+    leds0[:] = bytearray(n*4)
+    set_area2(center/leds_per_cm, width/3, ramp_color_2, leds0)
+    neopixel_write(pin, leds0)
 
     utime.sleep_ms(200)
 
     for i in range(size // 2):
         i1 = (center - (i % n) - d) % n
         i2 = (center + (i % n)) % n
-        leds_0[i1 * 4:i1 * 4 + 4] = ramp_color_1
-        leds_0[i2 * 4:i2 * 4 + 4] = ramp_color_1
-        neopixel_write(pin, leds_0)
+        leds0[i1 * 4:i1 * 4 + 4] = ramp_color_1
+        leds0[i2 * 4:i2 * 4 + 4] = ramp_color_1
+        neopixel_write(pin, leds0)
         utime.sleep_ms(12)
     for i in range(16):
         color = interpolate_rgbw(ramp_color_1, ramp_color_3, (i + 1) / 16)
-        set_area2(cardinals['north'][0]/leds_per_cm, width, color, leds_0)
-        neopixel_write(pin, leds_0)
+        set_area2(cardinals['north'][0]/leds_per_cm, width, color, leds0)
+        neopixel_write(pin, leds0)
         utime.sleep_ms(1)
-    utime.sleep(1)
+
     fade_to()
 
 
@@ -178,53 +196,50 @@ def ramp_up():
 
 
 def set_sides(north, east, south, west, linear=False):
-    global leds_1
+    # set_sides((10,0,0,0), (0,10,0,0), (0,0,10,0), (0,0,0,10), False)
 
-    leds_1 = bytearray(n*4)
+    leds1[:] = bytearray(n*4)
 
     if linear:
         for i in range(*cardinals['north'][2]):
-            leds_1[i * 4:i * 4 + 4] = bytearray(north)
+            leds1[i * 4:i * 4 + 4] = bytearray(north)
         for i in range(*cardinals['east'][2]):
-            leds_1[i * 4:i * 4 + 4] = bytearray(east)
+            leds1[i * 4:i * 4 + 4] = bytearray(east)
         for i in range(*cardinals['south'][2]):
-            leds_1[i * 4:i * 4 + 4] = bytearray(south)
+            leds1[i * 4:i * 4 + 4] = bytearray(south)
         for i in range(*cardinals['west'][2]):
-            leds_1[i * 4:i * 4 + 4] = bytearray(west)
+            leds1[i * 4:i * 4 + 4] = bytearray(west)
     else:
-        set_area2(cardinals['north'][0] / leds_per_cm, width, north, leds_1)
-        set_area2(cardinals['east'][0] / leds_per_cm, height, east, leds_1)
-        set_area2(cardinals['south'][0] / leds_per_cm, width, south, leds_1)
-        set_area2(cardinals['west'][0] / leds_per_cm, height, west, leds_1)
+        set_area2(cardinals['north'][0] / leds_per_cm, width, north, leds1)
+        set_area2(cardinals['east'][0] / leds_per_cm, height, east, leds1)
+        set_area2(cardinals['south'][0] / leds_per_cm, width, south, leds1)
+        set_area2(cardinals['west'][0] / leds_per_cm, height, west, leds1)
 
     fade_to()
 
 
 def set_vertical(c1, c2):
-    global leds_1
-    set_area(cols//2 + n//2, n//2, c1, c1, leds_1)
-    set_area(cols//2, n//2, c2, c2, leds_1)
+    set_area(cols//2 + n//2, n//2, c1, c1, leds1)
+    set_area(cols//2, n//2, c2, c2, leds1)
     fade_to()
 
 
 def set_horizontal(c1, c2):
-    global leds_1
-    set_area(cols+rows//2, n//2, c1, c1, leds_1)
-    set_area(cols+rows+cols+rows//2, n//2, c2, c2, leds_1)
+    set_area(cols+rows//2, n//2, c1, c1, leds1)
+    set_area(cols+rows+cols+rows//2, n//2, c2, c2, leds1)
     fade_to()
 
 
 def set_vertical_interp(c1, c2):
-    global leds_1
-    set_area(cardinals['north'][0], cardinals['north'][1], c1, c1, leds_1)
-    set_area(cardinals['south'][0], cardinals['south'][1], c2, c2, leds_1)
+    set_area(cardinals['north'][0], cardinals['north'][1], c1, c1, leds1)
+    set_area(cardinals['south'][0], cardinals['south'][1], c2, c2, leds1)
     for i in range(rows):
         color_linear = interpolate_rgbw(c1, c2, (i + 1) / rows)
         color = bytearray(color_linear)
         i_east = north_east + i
         i_west = north_west - i - 1
-        leds_1[i_east * 4:i_east * 4 + 4] = color
-        leds_1[i_west * 4:i_west * 4 + 4] = color
+        leds1[i_east * 4:i_east * 4 + 4] = color
+        leds1[i_west * 4:i_west * 4 + 4] = color
     fade_to()
 
 
@@ -232,35 +247,32 @@ def set_vertical_interp(c1, c2):
 
 
 def test_led(led_id, brightness=1, n_times=2, timeout_ms=300):
-    global leds_0
     for _ in range(n_times):
         for i in range(4):
-            leds_0 = bytearray(n * 4)
+            leds0[:] = bytearray(n * 4)
             index = (led_id*4) + i
-            leds_0[index] = brightness
-            neopixel_write(pin, leds_0)
+            leds0[index] = brightness
+            neopixel_write(pin, leds0)
             utime.sleep_ms(timeout_ms)
     off()
 
 
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=100):
-    global leds_0
     for i in range(n * 4 * n_cycles):
-        leds_0 = bytearray(n * 4)
+        leds0[:] = bytearray(n * 4)
         index = i % (n * 4)
-        leds_0[index] = brightness
-        neopixel_write(pin, leds_0)
+        leds0[index] = brightness
+        neopixel_write(pin, leds0)
         utime.sleep_ms(timeout_ms)
     off()
 
 
-def cycle_color(color, n_cycles=1, timeout_ms=1):
-    global leds_0
+def cycle_color(color, n_cycles=1, timeout_ms=100):
     for i in range(n * n_cycles):
-        leds_0 = bytearray(n * 4)
+        leds0[:] = bytearray(n * 4)
         index = (i % n) * 4
-        leds_0[index:index + 4] = bytearray(color)
-        neopixel_write(pin, leds_0)
+        leds0[index:index + 4] = bytearray(color)
+        neopixel_write(pin, leds0)
         utime.sleep_ms(timeout_ms)
     off()
 
@@ -268,22 +280,16 @@ def cycle_color(color, n_cycles=1, timeout_ms=1):
 # ##############################################################################
 
 
-def paris(leds_str):
-    global leds_0, leds_1
-
-    direct = leds_str == 'leds_0'
-    if direct:
-        leds_0 = bytearray(n * [0, 0, 0, 5])
-    else:
-        leds_1 = bytearray(n * [0, 0, 0, 5])
-    set_area2(1/leds_per_cm, 6, color_river, leds_0 if direct else leds_1)
-    set_area2(65/leds_per_cm, 10, color_river, leds_0 if direct else leds_1)
-    set_area2(143/leds_per_cm, 5, color_river, leds_0 if direct else leds_1)
+def paris(leds):
+    leds[:] = bytearray(n * [0, 0, 0, 5])
+    set_area2(1/leds_per_cm, 6, color_river, leds)
+    set_area2(65/leds_per_cm, 10, color_river, leds)
+    set_area2(143/leds_per_cm, 5, color_river, leds)
 
 
-def draw_solun_positions(lat_long_deg, utc_time, leds):
+def draw_solunar_positions(lat_long_deg, utc_time, leds):
     # moon
-    lunar_azim, lunar_elev = solun.calc_lunar_position(lat_long_deg, utc_time)
+    lunar_azim, lunar_elev = solunar.calc_lunar_position(lat_long_deg, utc_time)
     lunar_result = unwind_angle(northclockwise2math(lunar_azim))
     if lunar_result and lunar_elev > 0.:
         distance, (x, y) = lunar_result
@@ -293,7 +299,7 @@ def draw_solun_positions(lat_long_deg, utc_time, leds):
         set_area2(distance, 1 + f2 * 10, (0, 0, 0, 5), leds)
         set_area2(distance, 1 + f2 * 5, color, leds)
     # sun
-    solar_azim, solar_elev = solun.calc_solar_position(lat_long_deg, utc_time)
+    solar_azim, solar_elev = solunar.calc_solar_position(lat_long_deg, utc_time)
     solar_result = unwind_angle(northclockwise2math(solar_azim))
     if solar_result and solar_elev > 0.:
         distance, (x, y) = solar_result
@@ -304,41 +310,37 @@ def draw_solun_positions(lat_long_deg, utc_time, leds):
         set_area2(distance, 1 + f2 * 7, (g, 255, 0, 0), leds)
 
 
-def paris_solun():
-    global leds_1
-    paris('leds_1')
-
+def paris_solunar():
+    paris(leds1)
     for i in range(equinox_or_solstice + 1):
         cardinal = list(cardinals.values())[i]
-        set_area2(cardinal[0]/leds_per_cm, 5, colors.colors['purple'], leds_1)
-
-    draw_solun_positions(coords, utime.localtime(), leds_1)
+        set_area2(cardinal[0]/leds_per_cm, 5, colors.colors['purple'], leds1)
+    draw_solunar_positions(coords, utime.localtime(), leds1)
     fade_to(4)
 
 
-def solun_demo():
-    global leds_0, leds_1
-    paris('leds_1')
+def solunar_demo():
+    paris(leds1)
     fade_to()
     year, month, day, hour, minute, second, weekday, yearday = utime.localtime()
 
     for h in range(24):
         for m in range(0, 60):
             # clear
-            paris('leds_0')
+            paris(leds0)
 
             # hour
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
-            distance = unwind_angle(northclockwise2math(angle))[0]
-            set_area2(distance, 4, [158, 81, 188, 0], leds_0)
+            distance = int(unwind_angle(northclockwise2math(angle))[0])
+            set_area2(distance, 4, [158, 81, 188, 0], leds0)
 
             # solar/lunar
-            draw_solun_positions(coords, (year, month, day, h, m, 0, weekday, yearday), leds_0)
+            draw_solunar_positions(coords, (year, month, day, h, m, 0, weekday, yearday), leds0)
 
             # apply
-            neopixel_write(pin, leds_0)
+            neopixel_write(pin, leds0)
 
-    paris('leds_1')
+    paris(leds1)
     fade_to()
 
 
@@ -346,7 +348,7 @@ def solun_demo():
 
 
 def spin(color, frequency):
-    global leds_0, last_millis, last_angle
+    global last_millis, last_angle
 
     tail = 24
 
@@ -366,24 +368,24 @@ def spin(color, frequency):
     background = [0, 0, 0, 0]
     beam_color = [int(intensity * c) for c in color]
 
-    leds_0 = bytearray(n * background)  # initialize color
+    leds0[:] = bytearray(n * background)  # initialize color
 
     for i in range(tail):
         index = (frac_led_index - i) % n
         t = 1. - float(i) / tail
         fading = interpolate_rgbw([0, 0, 0, 0], beam_color, t)
-        leds_0[index * 4:index * 4 + 4] = bytearray(fading)
+        leds0[index * 4:index * 4 + 4] = bytearray(fading)
 
-    neopixel_write(pin, leds_0)
+    neopixel_write(pin, leds0)
 
 
 def larson_scanner(primary, secondary):
-    global larson_index, larson_dir, larson_last_dir, leds_1
+    global larson_index, larson_dir, larson_last_dir
 
     size = 6
 
-    leds_1 = bytearray(n * secondary)
-    leds_1[larson_index * 4:larson_index * 4 + 4] = bytearray(primary)
+    leds1[:] = bytearray(n * secondary)
+    leds1[larson_index * 4:larson_index * 4 + 4] = bytearray(primary)
 
     for i in range(size):
         b = larson_index + 1 + i
@@ -391,11 +393,11 @@ def larson_scanner(primary, secondary):
         t = float(i+1) / size
         fading = interpolate_rgbw(secondary, primary, 1-t)
         if larson_bounds[0] <= a and a < larson_bounds[1]:
-            leds_1[a * 4:a * 4 + 4] = bytearray(fading)
+            leds1[a * 4:a * 4 + 4] = bytearray(fading)
         if larson_bounds[0] <= b and b < larson_bounds[1]:
-            leds_1[b * 4:b * 4 + 4] = bytearray(fading)
+            leds1[b * 4:b * 4 + 4] = bytearray(fading)
 
-    neopixel_write(pin, leds_1)
+    neopixel_write(pin, leds1)
 
     larson_last_dir = larson_dir
     larson_index += larson_dir
@@ -405,95 +407,113 @@ def larson_scanner(primary, secondary):
         larson_dir = 1
 
 
-def clock(neon, linear):
-    global leds_0, last_minute, last_second, start_second, clock_new_hands, clock_old_hands, clock_color_1, clock_color_2
+def classic_clock(continuous=False):
+    global last_second, start_second
 
     h, m, s = utime.localtime()[3:6]
     h = (h + utc_offset) % 24
-    a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
 
-    h_dist = unwind_angle(northclockwise2math(a_h))[0]
+    update = continuous or last_second != s
 
-    if neon:
-        if last_minute != m:  # switch color
-            clock_old_hands = clock_color_1
-            clock_new_hands = clock_color_2
-            clock_color_1 = clock_color_2
-            clock_color_2 = colors.random_choice_2(clock_color_1)
-            last_minute = m
-        if last_second != s:
+    frac_s = s  # temp variable so that second change event still works
+    if continuous:  # overwrite with fractions
+        if last_second != s:  # set milliseconds reference
             start_second = utime.ticks_ms()
+        frac_s += clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
+        m += frac_s / 60.
 
-        seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
-        minutes = (m + seconds / 60.) / 60. * 2. * math.pi
-        h_i = int(unwind_angle(northclockwise2math(a_h))[0])
-        m_i = int(unwind_angle(northclockwise2math(minutes))[0])
-
-        start = int(unwind_angle(northclockwise2math(0))[0])  # 12 o'clock
-
-        frac_led_index = 0  # partially lit led index
-        frac = 0.  # interpolation factor
-        n_leds = 0  # number of seconds leds (from top to seconds hand)
-
-        if linear:  # interpolate indices (linear velocity)
-            fraction_led = seconds / 60. * n
-            frac, frac_led_index = math.modf(fraction_led)
-            n_leds = int(frac_led_index)
-            frac_led_index = (start + n_leds) % n
-        else:  # clock  hand (faster at edges)
-            a_s = seconds / 60. * 2. * math.pi
-            fraction_led = unwind_angle(northclockwise2math(a_s))[0]
-            frac, frac_led_index = math.modf(fraction_led)
-            frac_led_index = int(frac_led_index)
-            n_leds = (frac_led_index - start) % n
-
-        h_hand_range = range(h_i-5, h_i+5)
-        m_hand_range = range(m_i-3, m_i+3)
-        icolor = clock_color_1
-
-        # fully lit seconds leds
-        for i in range(start, start + n):
-            a_i = i % n
-            is_hand = a_i in h_hand_range or a_i in m_hand_range
-            if i < start + n_leds:  # seconds passed
-                icolor = clock_color_2 if not is_hand else clock_new_hands
-            elif i > start + n_leds:  # seconds to be passed
-                icolor = clock_color_1 if not is_hand else clock_old_hands
-            elif is_hand:  # frac_led_index and hand (partially lit)
-                icolor = interpolate_rgbw(clock_old_hands, clock_new_hands, frac)
-            else:  # frac_led_index and not a hand (partially lit)
-                icolor = interpolate_rgbw(clock_color_1, clock_color_2, frac)
-            leds_0[a_i * 4:a_i * 4 + 4] = bytearray(icolor)
-    elif last_second != s:  # regular clock, only update if second has changed
+    if update:
+        a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
         a_m = m / 60. * 2. * math.pi
-        a_s = s / 60. * 2. * math.pi
+        a_s = frac_s / 60. * 2. * math.pi
 
+        h_dist = unwind_angle(northclockwise2math(a_h))[0]
         m_dist = unwind_angle(northclockwise2math(a_m))[0]
         s_dist = unwind_angle(northclockwise2math(a_s))[0]
 
-        leds_0 = bytearray(n * list(color_ambient))
-        set_area2(m_dist, 5, bytearray((60, 0, 40, 0)), leds_0)
-        set_area2(h_dist, 8, bytearray((26, 26, 0, 127)), leds_0)
-        set_area2(s_dist, 5, bytearray((26, 26, 0, 102)), leds_0)
+        if not continuous:
+            h_dist = int(h_dist)
+            m_dist = int(m_dist)
+            s_dist = int(s_dist)
+
+        leds0[:] = bytearray(n * list(color_ambient))
+        set_area2(m_dist, 5, bytearray((60, 0, 40, 0)), leds0)
+        set_area2(h_dist, 8, bytearray((26, 26, 0, 127)), leds0)
+        set_area2(s_dist, 5, bytearray((26, 26, 0, 102)), leds0)
+
+        neopixel_write(pin, leds0)
 
     last_second = s
 
-    neopixel_write(pin, leds_0)
+
+def neon_clock(start_at_minute=False):
+    global start_second, last_minute, last_second, clock_color_1, clock_color_2, clock_old_hands, clock_new_hands
+
+    h, m, s = utime.localtime()[3:6]
+    h = (h + utc_offset) % 24
+
+    if last_minute != m:  # switch color
+        clock_old_hands = clock_color_1
+        clock_new_hands = clock_color_2
+        clock_color_1 = clock_color_2
+        clock_color_2 = colors.random_choice_2(clock_color_1)
+        last_minute = m
+
+    if last_second != s:  # milliseconds reference
+        start_second = utime.ticks_ms()
+
+    seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
+
+    if start_at_minute:  # integer minutes, start seconds at minute hand
+        minutes = m / 60. * 2. * math.pi
+        m_i = int(unwind_angle(northclockwise2math(minutes))[0] * leds_per_cm)
+        start = m_i
+    else:  # float minutes, start seconds at noon
+        minutes = (m + seconds / 60.) / 60. * 2. * math.pi
+        m_i = int(unwind_angle(northclockwise2math(minutes))[0] * leds_per_cm)
+        start = int(unwind_angle(northclockwise2math(0))[0] * leds_per_cm)  # 12 o'clock
+
+    a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
+    h_i = int(unwind_angle(northclockwise2math(a_h))[0] * leds_per_cm)
+
+    fraction_led = seconds / 60. * n
+    frac, frac_led_index = math.modf(fraction_led)
+    n_leds = int(frac_led_index)  # number of seconds leds (from top to seconds hand if not linear, else from start)
+    frac_led_index = (start + n_leds) % n
+
+    h_hand_range = range(h_i-5, h_i+5)
+    m_hand_range = range(m_i-3, m_i+3)
+    icolor = clock_color_1
+
+    for i in range(start, start + n):
+        a_i = i % n
+        is_hand = a_i in h_hand_range or a_i in m_hand_range and not start_at_minute
+        if i < start + n_leds:  # seconds passed
+            icolor = clock_color_2 if not is_hand else clock_new_hands
+        elif i > start + n_leds:  # seconds to be passed
+            icolor = clock_color_1 if not is_hand else clock_old_hands
+        elif is_hand:  # frac_led_index and hand (partially lit)
+            icolor = interpolate_rgbw(clock_old_hands, clock_new_hands, frac)
+        else:  # frac_led_index and not a hand (partially lit)
+            icolor = interpolate_rgbw(clock_color_1, clock_color_2, frac)
+        leds0[a_i * 4:a_i * 4 + 4] = bytearray(icolor)
+
+    neopixel_write(pin, leds0)
+
+    last_second = s
 
 
 # ##############################################################################
 
 
 def set_color(led_index, color):
-    global leds_0
     led_index = clamp(led_index, 0, n)
-    leds_0 = bytearray(led_index * color + (n - 1) * (0, 0, 0, 0))
-    neopixel_write(pin, leds_0)
+    leds0[:] = bytearray(led_index * color + (n - 1) * (0, 0, 0, 0))
+    neopixel_write(pin, leds0)
 
 
 def fade_random():
-    global leds_1
-    leds_1 = bytearray(n * list(colors.random_choice()))
+    leds1[:] = bytearray(n * list(colors.random_choice()))
     fade_to(20)
 
 
@@ -504,17 +524,22 @@ def run_random():
     timer.init(period=5000, mode=Timer.PERIODIC, callback=lambda t: fade_random())
 
 
-def run_solun():
+def run_solunar():
     global equinox_or_solstice
 
-    # calculate once if it is equinox or solstice
-    equinox_or_solstice = solun.is_equinox_or_solstice(utime.localtime())
+    # calculate once if today is equinox or solstice
+    equinox_or_solstice = solunar.is_equinox_or_solstice(utime.localtime())
 
-    paris_solun()
-    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solun())
+    paris_solunar()
+    timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solunar())
 
 
-def run_clock(neon=False, linear=True):
+def run_classic_clock(continuous=False):
+    timing.update_time()
+    timer.init(period=100, mode=Timer.PERIODIC, callback=lambda t: classic_clock(continuous))
+
+
+def run_neon_clock(start_at_minute=False):
     global last_minute
     timing.update_time()
     s = utime.localtime()[5]  # seconds
@@ -523,11 +548,11 @@ def run_clock(neon=False, linear=True):
             last_minute = utime.localtime()[4]  # prevents color update on first neon draw
             break
         utime.sleep_ms(10)
-    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: clock(neon, linear))
+    timer.init(period=100, mode=Timer.PERIODIC, callback=lambda t: neon_clock(start_at_minute))
 
 
 def run_spin(color, frequency=0.25):
-    timer.init(period=50, mode=Timer.PERIODIC, callback=lambda t: spin(color, frequency))
+    timer.init(period=100, mode=Timer.PERIODIC, callback=lambda t: spin(color, frequency))
 
 
 def run_larson_scanner(cardinal, primary, secondary):
@@ -542,13 +567,11 @@ def run_larson_scanner(cardinal, primary, secondary):
     seconds = 2.
     dt = seconds / n_leds * 1000.
 
-    timer.init(period=int(round(dt)), mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
+    timer.init(period=max(1, int(round(dt))), mode=Timer.PERIODIC, callback=lambda t: larson_scanner(primary, secondary))
 
 
 def stop_timer():
-    global leds_0
-
-    leds_0 = leds_1  # copy currently displayed colors to start array for next fade
+    leds0[:] = leds1  # copy currently displayed colors to start array for next fade
     timer.deinit()
 
 
@@ -556,9 +579,9 @@ def stop_timer():
 
 
 def run(is_online):
-    paris('leds_1')
+    paris(leds1)
     ramp_up()
     if is_online:
-        run_solun()
+        run_solunar()
     else:
         set_sides((0, 0, 0, 0), (50, 50, 0, 80), (0, 0, 0, 0), (50, 50, 0, 80), False)
