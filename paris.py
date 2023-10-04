@@ -15,12 +15,11 @@ equinox_or_solstice = -1
 coords = (48.860536, 2.332237)  # paris
 # coords = (50.038333, 8.193611)  # home
 
-
-# default colors (grb)
+# some colors matching the frame
 color_off = bytearray(4)
-color_ambient = bytearray((1, 1, 0, 8))
-color_river = bytearray((10, 0, 15, 0))
-color_accent = bytearray((14, 46, 17, 0))
+color_ambient = bytearray((1, 0, 1, 8))
+color_river = bytearray([int(0.06 * x) for x in colors.colors['river_blue']])
+color_accent = bytearray([int(0.4 * x) for x in colors.colors['crimson']])
 
 # displayed led colors
 leds0 = bytearray(n * 4)
@@ -502,7 +501,6 @@ def neo_clock(start_at_minute=False, two_colors=False, ambient=False):
     m_hand_range = range(m_i-3, m_i+3)
     if start_at_minute:
         h_hand_range = range(h_i-1, h_i+1)
-    icolor = clock_color_1
 
     for i in range(start, start + n):
         a_i = i % n

@@ -1,24 +1,54 @@
 import utime
 import random
 
-colors = {
-    'red': [255, 0, 0, 0],
-    'orange': [255, 127, 0, 0],
-    'yellow': [255, 255, 0, 0],
-    'grass': [127, 255, 0, 0],
-    'green': [0, 255, 0, 0],
-    'mermaid': [0, 255, 127, 0],
-    'cyan': [0, 255, 255, 0],
-    'sky': [0, 127, 255, 0],
-    'blue': [0, 0, 255, 0],
-    'purple': [127, 0, 255, 0],
-    'magenta': [255, 0, 255, 0],
-    'rose': [255, 0, 127, 0]
+saturated_rgb = {
+    'red': 'ff0000',
+    'orange': 'ff8800',
+    'yellow': 'ffff00',
+    'grass': '88ff00',
+    'green': '00ff00',
+    'mermaid': '00ff88',
+    'cyan': '00ffff',
+    'sky': '0088ff',
+    'blue': '0000ff',
+    'purple': '8800ff',
+    'magenta': 'ff00ff',
+    'rose': 'ff0088'
 }
 
-# change rgba to grba format
-for key in colors.keys():
-    colors[key] = [colors[key][i] for i in [1, 0, 2, 3]]
+
+accents_rgb = {
+    'river_blue': '00aaff',  # colors that go well with this below
+    'giants_orange': 'ff8811',
+    'fuchsia': 'f100fe',
+    'coral_pink': 'fe938c',
+    'coral': 'ff5619',
+    'yellow': 'ffcc919',
+    'bright_pink': 'F7567C',
+    'plum': '9c528b',
+    'plum_web': 'ec91d8',
+    'rose_bonbon': 'ff499e',
+    'dark_pastel_green': '4cb944',
+    'crimson': 'd72638'
+}
+
+
+def hex2grb0(h):
+    h = h.lstrip('#')
+    x = [int(h[i:i+2], 16) for i in (2, 0, 4)]
+    x.append(0)
+    return x
+
+
+# create color map
+
+colors = {}
+
+for key in saturated_rgb.keys():
+    colors[key] = hex2grb0(saturated_rgb[key])
+
+for key in accents_rgb.keys():
+    colors[key] = hex2grb0(accents_rgb[key])
 
 gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,
@@ -49,7 +79,7 @@ def random_choice():
 
 def random_choice_2(color_1):
     color_2 = random_choice()
-    for i in range(3):  # make sure to terminate
+    for _ in range(3):  # make sure to terminate
         dist = sum([abs(a-b) for a, b in zip(color_1, color_2)])
         # i know this is very primitive and does not incorporate human color
         # perception but it prevents sequencing of colors that are too similar
