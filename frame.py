@@ -121,3 +121,33 @@ def get_distance_intensity(i):
     norm = math.sqrt(x*x+y*y)
     intensity = (height/2.) / norm
     return intensity
+
+
+def set_area2(center, size, primary, leds):
+    """
+    Parameters:
+    ----------------
+    center : float
+        center cm on strip
+    size : float
+        width of the area in cm
+    primary : tuple
+        primary color
+    leds : array
+        current led colors of the whole strip
+        used for interpolation
+    """
+    start = (center - size/2) % strip_length_cm  # cm
+    start += led_offset_cm
+    # leds that fully lie in the area to be covered
+    n_leds = int(math.ceil(size * leds_per_cm))  # leds
+    frac, frac_led_index = math.modf(start * leds_per_cm)  # leds
+    frac_led_index = int(frac_led_index)  # first led covering the area
+    for i in range(n_leds):
+        cm = (i + (1-frac)) / leds_per_cm  # cm
+        t = cm/size  # interpolate unit circle
+        k = math.sin(t*math.pi)  # intensity factor
+        led_index = (frac_led_index+i) % n
+        current_color = leds[led_index * 4:led_index * 4 + 4]
+        color = interpolate_rgbw(current_color, primary, k)
+        leds[led_index * 4:led_index * 4 + 4] = bytearray(color)

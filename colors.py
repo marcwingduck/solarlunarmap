@@ -1,6 +1,11 @@
 import utime
 import random
 
+h, m, s = utime.localtime()[3:6]
+random.seed(int(str(h) + str(m) + str(s)))
+
+color_ambient = [1, 0, 1, 8]
+
 saturated_rgb = {
     'red': 'ff0000',
     'orange': 'ff8800',
@@ -68,10 +73,6 @@ gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255]
 
 
-h, m, s = utime.localtime()[3:6]
-random.seed(int(str(h) + str(m) + str(s)))
-
-
 def random_choice():
     x = int(random.getrandbits(5) / (2 ** 5 - 1) * (len(colors) - 1))
     return list(colors.values())[x]
@@ -90,7 +91,7 @@ def random_choice_2(color_1):
 
 
 def complement(rgbw, keep_w=True):
-    c = bytearray([255 - x for x in rgbw])
+    c = [255 - x for x in rgbw]
     if keep_w:
         c[3] = rgbw[3]
     return c
