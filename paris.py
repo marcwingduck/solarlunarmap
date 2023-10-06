@@ -37,10 +37,14 @@ static = True
 start_second = 0
 last_second = -1
 last_minute = -1
-clock_color_1 = 4*[0]
-clock_color_2 = 4*[0]
-clock_old_hands = 4*[0]
-clock_new_hands = 4*[0]
+# clock_color_1 = 4*[0]
+# clock_color_2 = 4*[0]
+# clock_old_hands = 4*[0]
+# clock_new_hands = 4*[0]
+clock_color_1 = list(color_ambient)
+clock_color_2 = list(color_river)
+clock_old_hands = list(color_accent)
+clock_new_hands = list(color_accent)
 
 # spin globals
 last_angle = 0
@@ -283,6 +287,31 @@ def cycle_color(color, n_cycles=1, timeout_ms=100):
     off()
 
 
+def clock_hand():
+    n_samples = 1080
+    for i in range(n_samples):
+        angle = i/n_samples * 2 * math.pi
+        cm_on_strip, (x, y) = unwind_angle(northclockwise2math(angle))
+        fraction_led = cm_on_strip * leds_per_cm
+        frac, frac_led_index = math.modf(fraction_led)
+        frac_led_index = int(frac_led_index)
+        leds0[:] = bytearray(n * list(color_ambient))
+        # leds0[:] = bytearray(n * 4)
+        id0 = frac_led_index * 4
+        id1 = ((frac_led_index+1) % n) * 4
+
+        # smooth
+        # leds0[id0:id0+4] = bytearray((0, 0, 0, int((1-frac)*64)))
+        # leds0[id1:id1+4] = bytearray((0, 0, 0, int(frac*64)))
+
+        # blending in: not so super smooth, but ok
+        leds0[id0:id0+4] = bytearray(interpolate_rgbw(color_accent, color_ambient, frac))
+        leds0[id1:id1+4] = bytearray(interpolate_rgbw(color_ambient, color_accent, frac))
+
+        neopixel_write(pin, leds0)
+        utime.sleep_ms(1)
+
+
 # ##############################################################################
 
 
@@ -379,7 +408,7 @@ def spin(color, frequency):
     for i in range(tail):
         index = (frac_led_index - i) % n
         t = 1. - float(i) / tail
-        fading = interpolate_rgbw([0, 0, 0, 0], beam_color, t)
+        fading = interpolate_rgbw(background, beam_color, t)
         leds0[index * 4:index * 4 + 4] = bytearray(fading)
 
     neopixel_write(pin, leds0)
@@ -413,54 +442,84 @@ def larson_scanner(primary, secondary):
         larson_dir = 1
 
 
-def classic_clock(continuous=False):
-    global last_second, start_second
+def clock_demo():
+    global last_minute, last_second
+    for h in range(24):
+        for m in range(0, 60):
+            for s in range(0, 60):
+                for ms in range(0, 1000, 250):
+                    frac_s = s + ms / 1000.
+                    frac_m = m + frac_s / 60.
+                    frac_h = h % 12 + frac_m / 60.
+                    # draw_clock(frac_h, frac_m, frac_s, True)
+                    draw_neo_clock(frac_h, frac_m, frac_s, last_minute != m, True, True, False)
+                    last_minute = m
+                    last_second = s
 
+
+def classic_clock(continuous=False):
+    global last_minute, last_second, start_second
     h, m, s = utime.localtime()[3:6]
     h = (h + utc_offset) % 24
-
-    update = continuous or last_second != s
-
-    frac_s = s  # temp variable so that second change event still works
+    frac_s = s
+    frac_m = m
     if continuous:  # overwrite with fractions
         if last_second != s:  # set milliseconds reference
             start_second = utime.ticks_ms()
         frac_s += clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
-        m += frac_s / 60.
-
-    if update:
-        a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
-        a_m = m / 60. * 2. * math.pi
-        a_s = frac_s / 60. * 2. * math.pi
-
-        h_dist = unwind_angle(northclockwise2math(a_h))[0]
-        m_dist = unwind_angle(northclockwise2math(a_m))[0]
-        s_dist = unwind_angle(northclockwise2math(a_s))[0]
-
-        if not continuous:
-            h_dist = int(h_dist)
-            m_dist = int(m_dist)
-            s_dist = int(s_dist)
-
-        leds0[:] = bytearray(n * list(color_ambient))
-        set_area2(m_dist, 5, bytearray((60, 0, 40, 0)), leds0)
-        set_area2(h_dist, 8, bytearray((26, 26, 0, 127)), leds0)
-        set_area2(s_dist, 5, bytearray((26, 26, 0, 102)), leds0)
-
+        frac_m += frac_s / 60.
+    frac_h = h % 12 + frac_m / 60. + frac_s / 3600
+    if continuous or last_second != s:
+        draw_clock(frac_h, m, frac_s, leds0, continuous)
         neopixel_write(pin, leds0)
-
+    last_minute = m
     last_second = s
 
 
 def neo_clock(start_at_minute=False, two_colors=False, ambient=False):
-    global start_second, last_minute, last_second
-
+    global last_minute, last_second, start_second
     h, m, s = utime.localtime()[3:6]
     h = (h + utc_offset) % 24
+    if last_second != s:  # milliseconds reference
+        start_second = utime.ticks_ms()
+    frac_s = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
+    frac_m = m + frac_s / 60.
+    frac_h = h % 12 + frac_m / 60.
+    draw_neo_clock(frac_h, frac_m, frac_s, leds0, last_minute != m, start_at_minute, two_colors, ambient)
+    neopixel_write(pin, leds0)
+    last_minute = m
+    last_second = s
 
-    if last_minute != m:  # switch color
-        last_minute = m
 
+def draw_clock(h, m, s, leds, continuous=False):
+    global start_second
+
+    a_h = h / 12. * 2. * math.pi
+    a_m = m / 60. * 2. * math.pi
+    a_s = s / 60. * 2. * math.pi
+
+    h_dist = unwind_angle(northclockwise2math(a_h))[0]
+    m_dist = unwind_angle(northclockwise2math(a_m))[0]
+    s_dist = unwind_angle(northclockwise2math(a_s))[0]
+
+    leds0[:] = bytearray(n * list(color_ambient))
+
+    set_area2(m_dist, 5, bytearray((60, 0, 40, 0)), leds0)
+    set_area2(h_dist, 8, bytearray((26, 26, 0, 127)), leds0)
+    # set_area2(s_dist, 5, bytearray((26, 26, 0, 102)), leds0)
+
+    # second hand
+    fraction_led = s_dist * leds_per_cm
+    frac, frac_led_index = math.modf(fraction_led)
+    frac_led_index = int(frac_led_index)
+    id0 = frac_led_index * 4
+    id1 = ((frac_led_index + 1) % n) * 4
+    leds[id0:id0+4] = bytearray(interpolate_rgbw(color_accent, leds0[id0:id0+4], frac))
+    leds[id1:id1+4] = bytearray(interpolate_rgbw(leds0[id1:id1+4], color_accent, frac))
+
+
+def draw_neo_clock(h, m, s, leds, change_color, start_at_minute=False, two_colors=False, ambient=False):
+    if change_color:  # switch colors
         if two_colors:
             # no need to update hand colors, only cycle clock colors
             if not ambient:
@@ -475,24 +534,18 @@ def neo_clock(start_at_minute=False, two_colors=False, ambient=False):
             clock_color_1[:] = clock_color_2
             clock_color_2[:] = [int(dimmer*x) for x in colors.random_choice_2(clock_color_1)]
 
-    if last_second != s:  # milliseconds reference
-        start_second = utime.ticks_ms()
+    m_h = m / 60. * 2. * math.pi
+    m_i = int(unwind_angle(northclockwise2math(m_h))[0] * leds_per_cm)
 
-    seconds = s + clamp((utime.ticks_ms() - start_second) / 1000., 0.0, 1.0)
-
-    if start_at_minute:  # integer minutes, start seconds at minute hand
-        minutes = m / 60. * 2. * math.pi
-        m_i = int(unwind_angle(northclockwise2math(minutes))[0] * leds_per_cm)
+    if start_at_minute:  # start seconds at minute hand
         start = m_i
-    else:  # float minutes, start seconds at noon
-        minutes = (m + seconds / 60.) / 60. * 2. * math.pi
-        m_i = int(unwind_angle(northclockwise2math(minutes))[0] * leds_per_cm)
-        start = int(unwind_angle(northclockwise2math(0))[0] * leds_per_cm)  # 12 o'clock
+    else:  # start seconds at at 12 o'clock
+        start = int(unwind_angle(northclockwise2math(0))[0] * leds_per_cm)
 
-    a_h = (h % 12 + m / 60. + s / 3600) / 12. * 2. * math.pi
+    a_h = h / 12. * 2. * math.pi
     h_i = int(unwind_angle(northclockwise2math(a_h))[0] * leds_per_cm)
 
-    fraction_led = seconds / 60. * n
+    fraction_led = s / 60. * n
     frac, frac_led_index = math.modf(fraction_led)
     n_leds = int(frac_led_index)  # number of seconds leds (from top to seconds hand if not linear, else from start)
     frac_led_index = (start + n_leds) % n
@@ -513,11 +566,7 @@ def neo_clock(start_at_minute=False, two_colors=False, ambient=False):
             icolor = interpolate_rgbw(clock_old_hands, clock_new_hands, frac)
         else:  # frac_led_index and not a hand (partially lit)
             icolor = interpolate_rgbw(clock_color_1, clock_color_2, frac)
-        leds0[a_i * 4:a_i * 4 + 4] = bytearray(icolor)
-
-    neopixel_write(pin, leds0)
-
-    last_second = s
+        leds[a_i * 4:a_i * 4 + 4] = bytearray(icolor)
 
 
 # ##############################################################################
@@ -628,6 +677,8 @@ def stop_timer():
 
 
 def run(is_online):
+    run_classic_clock()
+    return
     paris(leds1)
     ramp_up()
     if is_online:
