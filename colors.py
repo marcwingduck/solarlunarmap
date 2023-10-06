@@ -74,8 +74,13 @@ gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
 
 def random_choice():
-    x = int(random.getrandbits(5) / (2 ** 5 - 1) * (len(colors) - 1))
-    return list(colors.values())[x]
+    """
+    Get a random (saturated) color.
+    Returns:
+    list with four integers
+    """
+    x = int(random.getrandbits(5) / (2 ** 5 - 1) * (len(saturated_rgb) - 1))
+    return colors[list(saturated_rgb.keys())[x]]
 
 
 def random_choice_2(color_1):

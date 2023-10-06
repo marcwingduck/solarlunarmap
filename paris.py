@@ -53,6 +53,8 @@ larson_dir = 1
 larson_last_dir = -1
 
 clock = clk.Clock()
+clock.set_background_colors(color_ambient, color_river)
+clock.set_hand_colors([26, 26, 0, 127], [60, 0, 40, 0], color_accent)
 
 
 # ##############################################################################
@@ -465,12 +467,12 @@ def clock_demo():
                     neopixel_write(pin, leds0)
 
 
-def run_classic_clock(continuous=False):
+def run_cls_clock(continuous=False):
     global static
 
-    params = {'mode': 'cls',
-              'continuous': continuous}
-    clock.update_params(params)
+    clock.update_params({'mode': 'cls', 'continuous': continuous})
+    clock.set_background_colors(color_ambient, color_river)
+    clock.set_hand_colors([26, 26, 0, 127], [60, 0, 40, 0], color_accent)
 
     timing.update_time()
 
@@ -481,16 +483,16 @@ def run_classic_clock(continuous=False):
 def run_neo_clock(start_at_minute=False, two_colors=False, ambient=False):
     global static, last_minute
 
-    if ambient:
-        clock.init_colors(color_ambient, color_river, color_accent, color_accent)
-    else:
-        clock.init_colors(colors.colors['cyan'], colors.colors['orange'], colors.colors['orange'], colors.colors['cyan'])
+    clock.update_params({'mode': 'neo',
+                         'start_at_minute': start_at_minute,
+                         'two_colors': two_colors,
+                         'ambient': ambient})
 
-    params = {'mode': 'neo',
-              'start_at_minute': start_at_minute,
-              'two_colors': two_colors,
-              'ambient': ambient}
-    clock.update_params(params)
+    if ambient:
+        clock.set_background_colors(color_ambient, color_river)
+        clock.set_hand_colors([26, 26, 0, 127], [60, 0, 40, 0], color_accent)
+    else:
+        clock.set_background_colors(colors.colors['cyan'], colors.colors['orange'])
 
     timing.update_time()
     s = utime.localtime()[5]  # seconds
@@ -539,7 +541,7 @@ def stop_timer():
 
 
 def run(is_online):
-    run_classic_clock()
+    run_cls_clock(True)
     return
     paris(leds1)
     ramp_up()
