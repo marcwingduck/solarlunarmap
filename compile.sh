@@ -4,4 +4,8 @@
 # export PATH="/Users/marc/External/micropython/mpy-cross/build:$PATH"
 # to your .zshrc/.bashrc:
 
-for f in clock.py colors.py common.py frame.py paris.py solunar.py timing.py; do mpy-cross ${f}; done
+mkdir -p build
+for f in clock.py colors.py common.py frame.py paris.py solunar.py timing.py; do
+    g="${f%.*}"
+    mpy-cross ${f} -o build/${g}.mpy
+done

@@ -98,22 +98,22 @@ class Clock:
         m_dist = unwind_angle(northclockwise2math(a_m))[0]
         s_dist = unwind_angle(northclockwise2math(a_s))[0]
 
-        # leds[:] = bytearray(n * list(colors.color_ambient)) # <-- extra right-hand side allocation fails
+        # leds[:] = bytearray(n * list(colors.color_ambient)) # <-- extra right-hand side allocation fails due to memory issues
         for i in range(n):
             leds[i*4:i*4+4] = bytearray(self.color_1)
 
-        set_area2(m_dist, 5, bytearray(self.color_m), leds)
+        set_area2(m_dist, 6, bytearray(self.color_m), leds)
         set_area2(h_dist, 8, bytearray(self.color_h), leds)
-        # set_area2(s_dist, 5, bytearray((26, 26, 0, 102)), leds)
+        set_area2(s_dist, 1, bytearray(self.color_s), leds)
 
-        # second hand
-        fraction_led = s_dist * leds_per_cm
-        frac, frac_led_index = math.modf(fraction_led)
-        frac_led_index = int(frac_led_index)
-        id0 = frac_led_index * 4
-        id1 = ((frac_led_index + 1) % n) * 4
-        leds[id0:id0+4] = bytearray(interpolate_rgbw(self.color_s, leds[id0:id0+4], frac))
-        leds[id1:id1+4] = bytearray(interpolate_rgbw(leds[id1:id1+4], self.color_s, frac))
+        # smooth two-led second hand
+        # fraction_led = s_dist * leds_per_cm
+        # frac, frac_led_index = math.modf(fraction_led)
+        # frac_led_index = int(frac_led_index)
+        # id0 = frac_led_index * 4
+        # id1 = ((frac_led_index + 1) % n) * 4
+        # leds[id0:id0+4] = bytearray(interpolate_rgbw(self.color_s, leds[id0:id0+4], frac))
+        # leds[id1:id1+4] = bytearray(interpolate_rgbw(leds[id1:id1+4], self.color_s, frac))
 
     def neo(self, h, m, s, leds, change_color):
         """
@@ -121,20 +121,14 @@ class Clock:
         """
 
         if change_color:  # switch colors
+            self.color_old_hands[:] = self.color_1
+            self.color_new_hands[:] = self.color_2
+            tmp = self.color_1[:]
+            self.color_1[:] = self.color_2
             if self.params['two_colors']:
-                # no need to update hand colors, only cycle clock colors
-                if not self.params['ambient']:
-                    self.color_old_hands[:] = self.color_1
-                    self.color_new_hands[:] = self.color_2
-                tmp = self.color_1[:]
-                self.color_1[:] = self.color_2
                 self.color_2[:] = tmp
             else:  # random neo mode
-                self.color_old_hands[:] = self.color_1
-                self.color_new_hands[:] = self.color_2
-                self.color_1[:] = self.color_2
-                # self.clock_color_2[:] = [int(dimmer*x) for x in colors.random_choice_2(self.color_1)]
-                self.color_2[:] = list(colors.random_choice_2(self.color_1))
+                self.color_2[:] = list(colors.random_saturated_2(self.color_1))
 
         if self.params['start_at_minute']:  # start seconds at minute hand
             m_h = int(m) / 60. * 2. * math.pi
@@ -156,7 +150,7 @@ class Clock:
         h_hand_range = range(h_i-5, h_i+5)
         m_hand_range = range(m_i-3, m_i+3)
         if self.params['start_at_minute']:
-            h_hand_range = range(h_i-1, h_i+1)
+            h_hand_range = range(h_i-3, h_i+3)
 
         for i in range(start, start + n):
             a_i = i % n

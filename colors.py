@@ -73,30 +73,38 @@ gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          215, 218, 220, 223, 225, 228, 231, 233, 236, 239, 241, 244, 247, 249, 252, 255]
 
 
-def random_choice():
+def complement(rgbw, keep_w=True):
+    c = [255 - x for x in rgbw]
+    if keep_w:
+        c[3] = rgbw[3]
+    return c
+
+
+def random_color(collection):
     """
-    Get a random (saturated) color.
+    Get a random color from either saturated or accents collection.
     Returns:
     list with four integers
     """
-    x = int(random.getrandbits(5) / (2 ** 5 - 1) * (len(saturated_rgb) - 1))
-    return colors[list(saturated_rgb.keys())[x]]
+    x = int(random.getrandbits(5) / (2 ** 5 - 1) * (len(collection) - 1))
+    return colors[list(collection.keys())[x]]
 
 
-def random_choice_2(color_1):
-    color_2 = random_choice()
+def random_saturated():
+    return random_color(saturated_rgb)
+
+
+def random_accent():
+    return random_color(accents_rgb)
+
+
+def random_saturated_2(color_1):
+    color_2 = random_saturated()
     for _ in range(3):  # make sure to terminate
         dist = sum([abs(a-b) for a, b in zip(color_1, color_2)])
         # i know this is very primitive and does not incorporate human color
         # perception but it prevents sequencing of colors that are too similar
         # (e.g. yellow/orange).
         if dist < 255+127:
-            color_2 = random_choice()
+            color_2 = random_saturated()
     return color_2
-
-
-def complement(rgbw, keep_w=True):
-    c = [255 - x for x in rgbw]
-    if keep_w:
-        c[3] = rgbw[3]
-    return c

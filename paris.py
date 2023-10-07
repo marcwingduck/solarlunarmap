@@ -256,15 +256,20 @@ def cycle_color(color, n_cycles=1, timeout_ms=100):
     off()
 
 
-def cycle_circular():
-    n_samples = 1080
+def cycle_circular(size=1):
+    n_samples = 360
+    color_1 = [0, 0, 0, 0]  # background color
+    color_2 = [0, 164, 0, 0]  # pointer color
     for i in range(n_samples):
-        angle = i/n_samples * 2 * math.pi
+        angle = 2/3.*math.pi + i/n_samples * 3/4.*math.pi
+        # angle = 2/3.*math.pi + i/n_samples * 2*math.pi
         cm_on_strip, (x, y) = unwind_angle(northclockwise2math(angle))
         fraction_led = cm_on_strip * leds_per_cm
         frac, frac_led_index = math.modf(fraction_led)
         frac_led_index = int(frac_led_index)
-        leds0[:] = bytearray(n * list(color_ambient))
+        for i in range(n):
+            leds0[i*4:i*4+4] = bytearray(color_1)
+        # leds0[:] = bytearray(n * list(color_ambient))
         # leds0[:] = bytearray(n * 4)
         id0 = frac_led_index * 4
         id1 = ((frac_led_index+1) % n) * 4
@@ -274,8 +279,9 @@ def cycle_circular():
         # leds0[id1:id1+4] = bytearray((0, 0, 0, int(frac*64)))
 
         # blending in: not so super smooth, but ok
-        leds0[id0:id0+4] = bytearray(interpolate_rgbw(color_accent, color_ambient, frac))
-        leds0[id1:id1+4] = bytearray(interpolate_rgbw(color_ambient, color_accent, frac))
+        # leds0[id0:id0+4] = bytearray(interpolate_rgbw(color_2, color_1, frac))
+        # leds0[id1:id1+4] = bytearray(interpolate_rgbw(color_1, color_2, frac))
+        set_area2(cm_on_strip, size, color_2, leds0)
 
         neopixel_write(pin, leds0)
         utime.sleep_ms(1)
@@ -289,7 +295,7 @@ def draw_solunar_positions(lat_long_deg, utc_time, leds):
     lunar_azim, lunar_elev = solunar.calc_lunar_position(lat_long_deg, utc_time)
     lunar_result = unwind_angle(northclockwise2math(lunar_azim))
     if lunar_result and lunar_elev > 0.:
-        distance, (x, y) = lunar_result
+        distance = lunar_result[0]
         f1 = clamp(math.degrees(lunar_elev), 0., 18.5) / 18.5
         f2 = clamp(math.degrees(lunar_elev), 0., 6.) / 6.
         color = interpolate_rgbw((10, 10, 20, 80), (64, 64, 200, 0), f1)
@@ -299,7 +305,7 @@ def draw_solunar_positions(lat_long_deg, utc_time, leds):
     solar_azim, solar_elev = solunar.calc_solar_position(lat_long_deg, utc_time)
     solar_result = unwind_angle(northclockwise2math(solar_azim))
     if solar_result and solar_elev > 0.:
-        distance, (x, y) = solar_result
+        distance = solar_result[0]
         f1 = clamp(math.degrees(solar_elev), 0., 23.45) / 23.45
         f2 = clamp(math.degrees(solar_elev), 0., 6.) / 6.
         g = int(interpolate(50, 180, f1))
@@ -328,7 +334,7 @@ def solunar_demo():
 
             # hour
             angle = (h % 12 + m / 60.) / 12. * 2. * math.pi
-            distance = int(unwind_angle(northclockwise2math(angle))[0])
+            distance = unwind_angle(northclockwise2math(angle))[0]
             set_area2(distance, 4, [158, 81, 188, 0], leds0)
 
             # solar/lunar
@@ -432,7 +438,7 @@ def set_color(led_index, color, clear=False):
 
 
 def fade_random():
-    leds1[:] = bytearray(n * list(colors.random_choice()))
+    leds1[:] = bytearray(n * list(colors.random_saturated()))
     fade(20)
 
 
@@ -541,8 +547,6 @@ def stop_timer():
 
 
 def run(is_online):
-    run_cls_clock(True)
-    return
     paris(leds1)
     ramp_up()
     if is_online:

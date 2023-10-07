@@ -123,12 +123,21 @@ def get_distance_intensity(i):
     return intensity
 
 
+def sine(c, w, x):
+    """
+    Sine wave centered around c with frequency adjusted to be w/2
+    """
+    unit = w/2.
+    y = math.sin(math.pi/unit * x + math.pi/2.-(c/unit)*math.pi)
+    return (y+1.)/2.
+
+
 def set_area2(center, size, primary, leds):
     """
     Parameters:
     ----------------
     center : float
-        center cm on strip
+        area center on the strip in cm
     size : float
         width of the area in cm
     primary : tuple
@@ -137,17 +146,34 @@ def set_area2(center, size, primary, leds):
         current led colors of the whole strip
         used for interpolation
     """
-    start = (center - size/2) % strip_length_cm  # cm
-    start += led_offset_cm
-    # leds that fully lie in the area to be covered
-    n_leds = int(math.ceil(size * leds_per_cm))  # leds
-    frac, frac_led_index = math.modf(start * leds_per_cm)  # leds
-    frac_led_index = int(frac_led_index)  # first led covering the area
-    for i in range(n_leds):
-        cm = (i + (1-frac)) / leds_per_cm  # cm
-        t = cm/size  # interpolate unit circle
-        k = math.sin(t*math.pi)  # intensity factor
-        led_index = (frac_led_index+i) % n
-        current_color = leds[led_index * 4:led_index * 4 + 4]
-        color = interpolate_rgbw(current_color, primary, k)
-        leds[led_index * 4:led_index * 4 + 4] = bytearray(color)
+    # at least two leds to avoid flickering in motion
+    size = max(2./leds_per_cm, size)
+    i0 = int((center-size/2.) * leds_per_cm)  # not yet in area
+    i1 = int((center+size/2.) * leds_per_cm)  # last one in area
+    for i in range(i0+1, i1+1):
+        w = i % n
+        k = sine(center, size, i/leds_per_cm)
+        current_color = leds[w*4:w*4+4]
+        leds[w*4:w*4+4] = bytearray(interpolate_rgbw(current_color, primary, k))
+
+
+if __name__ == '__main__':
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    leds = bytearray(n*4)
+    cm_on_strip = 12
+    size = 1.0
+    set_area2(cm_on_strip, size, 4*[64], leds)
+    x = np.arange(0, 30, 1/leds_per_cm)
+    x2 = np.arange(0, 30, 0.1)
+    size = max(2./leds_per_cm, size)
+    y = (1+np.sin(np.pi/(size/2.) * x2 + np.pi/2.-(cm_on_strip/(size/2.))*np.pi))*0.5  # unit > 2pi
+    fig, ax = plt.subplots()
+    ax.set_xticks(x)
+    ax.set_xticklabels(['{}\n{}'.format(i, round(x[i], 2)) for i in range(len(x))])
+    for l in [cm_on_strip-size/2., cm_on_strip, cm_on_strip+size/2.]:
+        plt.axvline(l, color='red')
+    ax.set_ylim([0, 1])
+    ax.plot(x2, y)
+    plt.show()
