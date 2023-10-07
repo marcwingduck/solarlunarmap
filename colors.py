@@ -21,7 +21,6 @@ saturated_rgb = {
     'rose': 'ff0088'
 }
 
-
 accents_rgb = {
     'river_blue': '00aaff',  # colors that go well with this below
     'giants_orange': 'ff8811',
@@ -46,14 +45,12 @@ def hex2grb0(h):
 
 
 # create color map
-
 colors = {}
-
 for key in saturated_rgb.keys():
     colors[key] = hex2grb0(saturated_rgb[key])
-
 for key in accents_rgb.keys():
     colors[key] = hex2grb0(accents_rgb[key])
+
 
 gamma = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1,

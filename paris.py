@@ -73,17 +73,11 @@ neopixel_write(pin, leds0)
 # ##############################################################################
 
 
-def fade(steps=20, sleep=0):
-
-    if steps <= 1:
-        leds0[:] = leds1
-        neopixel_write(pin, leds0)
-        return
-
+def fade(steps=32, sleep=0):
     for i in range(steps):
-        t = (i + 1) / steps
+        t = (i + 1.) / steps
         for j in range(n * 4):  # iterate all
-            leds0[j] = int(interpolate(leds0[j], leds1[j], t))
+            leds0[j] = int(interpolate(leds0[j], dimmer*leds1[j], t))
         neopixel_write(pin, leds0)
         utime.sleep_ms(sleep)
 
@@ -94,13 +88,23 @@ def apply_dimmer(value):
 
     # apply in static mode only
     if static:
-        for i in range(n*4):
-            leds0[i] = int(dimmer*leds1[i])
-        neopixel_write(pin, leds0)
+        fade()
+
+
+def clear(leds):
+    # leds1[:] = bytearray(n * 4)  <-- causes memory issues
+    for i in range(n*4):
+        leds[i] = 0
+
+
+def init(leds, color):
+    # leds0[:] = bytearray(n * background)  <-- causes memory issues
+    for i in range(n):
+        leds[i*4:i*4+4] = bytearray(color)
 
 
 def off():
-    leds1[:] = bytearray(n * 4)
+    clear(leds1)
     fade()
 
 
@@ -110,7 +114,7 @@ def ambient():
 
 
 def paris(leds):
-    leds[:] = bytearray(n * list(color_ambient))
+    init(leds, color_ambient)
     set_area2(1/leds_per_cm, 6, color_river, leds)
     set_area2(65/leds_per_cm, 10, color_river, leds)
     set_area2(143/leds_per_cm, 5, color_river, leds)
@@ -143,7 +147,7 @@ def set_area(center, size, primary, secondary, leds):
 
 def set_sides(north, east, south, west, linear=False):
 
-    leds1[:] = bytearray(n * 4)
+    clear(leds1)
 
     if linear:
         for i in range(*cardinals['north'][2]):
@@ -181,7 +185,7 @@ def set_vertical_interp(c1, c2):
     set_area(cardinals['north'][0], cardinals['north'][1], c1, c1, leds1)
     set_area(cardinals['south'][0], cardinals['south'][1], c2, c2, leds1)
     for i in range(rows):
-        color_linear = interpolate_rgbw(c1, c2, (i + 1) / rows)
+        color_linear = interpolate_rgbw(c1, c2, (i + 1.) / rows)
         color = bytearray(color_linear)
         i_east = north_east + i
         i_west = north_west - i - 1
@@ -206,7 +210,7 @@ def ramp_up():
     ramp_color_2 = bytearray((0, 0, 0, 50))
     ramp_color_3 = bytearray((0, 0, 0, 200))
 
-    leds0[:] = bytearray(n*4)
+    clear(leds0)
     set_area2(center/leds_per_cm, width/3, ramp_color_2, leds0)
     neopixel_write(pin, leds0)
 
@@ -219,11 +223,12 @@ def ramp_up():
         leds0[i2 * 4:i2 * 4 + 4] = ramp_color_1
         neopixel_write(pin, leds0)
         utime.sleep_ms(12)
+
     for i in range(16):
-        color = interpolate_rgbw(ramp_color_1, ramp_color_3, (i + 1) / 16)
+        color = interpolate_rgbw(ramp_color_1, ramp_color_3, (i + 1.) / 16.)
         set_area2(cardinals['north'][0]/leds_per_cm, width, color, leds0)
         neopixel_write(pin, leds0)
-        utime.sleep_ms(1)
+        utime.sleep_ms(2)
 
     fade()
 
@@ -234,7 +239,7 @@ def ramp_up():
 def test_led(led_id, brightness=1, n_times=2, timeout_ms=300):
     for _ in range(n_times):
         for i in range(4):
-            leds0[:] = bytearray(n * 4)
+            clear(leds0)
             index = (led_id*4) + i
             leds0[index] = brightness
             neopixel_write(pin, leds0)
@@ -244,7 +249,7 @@ def test_led(led_id, brightness=1, n_times=2, timeout_ms=300):
 
 def cycle_channels(brightness=255, n_cycles=1, timeout_ms=100):
     for i in range(n * 4 * n_cycles):
-        leds0[:] = bytearray(n * 4)
+        clear(leds0)
         index = i % (n * 4)
         leds0[index] = brightness
         neopixel_write(pin, leds0)
@@ -254,7 +259,7 @@ def cycle_channels(brightness=255, n_cycles=1, timeout_ms=100):
 
 def cycle_color(color, n_cycles=1, timeout_ms=100):
     for i in range(n * n_cycles):
-        leds0[:] = bytearray(n * 4)
+        clear(leds0)
         index = (i % n) * 4
         leds0[index:index + 4] = bytearray(color)
         neopixel_write(pin, leds0)
@@ -273,24 +278,24 @@ def cycle_circular(size=1):
         fraction_led = cm_on_strip * leds_per_cm
         frac, frac_led_index = math.modf(fraction_led)
         frac_led_index = int(frac_led_index)
-        for i in range(n):
-            leds0[i*4:i*4+4] = bytearray(color_1)
-        # leds0[:] = bytearray(n * list(color_ambient))
-        # leds0[:] = bytearray(n * 4)
+        init(leds0, color_1)
         id0 = frac_led_index * 4
         id1 = ((frac_led_index+1) % n) * 4
 
-        # smooth
+        # 1 smooth
         # leds0[id0:id0+4] = bytearray((0, 0, 0, int((1-frac)*64)))
         # leds0[id1:id1+4] = bytearray((0, 0, 0, int(frac*64)))
 
-        # blending in: not so super smooth, but ok
+        # 2 blending in: not so super smooth, but ok
         # leds0[id0:id0+4] = bytearray(interpolate_rgbw(color_2, color_1, frac))
         # leds0[id1:id1+4] = bytearray(interpolate_rgbw(color_1, color_2, frac))
+
+        # 3
         set_area2(cm_on_strip, size, color_2, leds0)
 
         neopixel_write(pin, leds0)
         utime.sleep_ms(1)
+    off()
 
 
 # ##############################################################################
@@ -325,7 +330,7 @@ def paris_solunar():
         cardinal = list(cardinals.values())[i]
         set_area2(cardinal[0]/leds_per_cm, 5, color_accent, leds1)
     draw_solunar_positions(coords, utime.localtime(), leds1)
-    fade(4)
+    fade()
 
 
 def solunar_demo():
@@ -402,7 +407,7 @@ def spin(color, frequency):
     background = [0, 0, 0, 0]
     beam_color = [int(intensity * c) for c in color]
 
-    leds0[:] = bytearray(n * background)  # initialize color
+    init(leds0, background)
 
     for i in range(tail):
         index = (frac_led_index - i) % n
@@ -416,15 +421,15 @@ def spin(color, frequency):
 def larson_scanner(primary, secondary):
     global larson_index, larson_dir, larson_last_dir
 
-    size = 6
+    size = 12
 
-    leds1[:] = bytearray(n * secondary)
+    init(leds1, secondary)
     leds1[larson_index * 4:larson_index * 4 + 4] = bytearray(primary)
 
     for i in range(size):
         b = larson_index + 1 + i
         a = larson_index - 1 - i
-        t = float(i+1) / size
+        t = (i+1.) / size
         fading = interpolate_rgbw(secondary, primary, 1-t)
         if larson_bounds[0] <= a and a < larson_bounds[1]:
             leds1[a * 4:a * 4 + 4] = bytearray(fading)
@@ -444,27 +449,15 @@ def larson_scanner(primary, secondary):
 # ##############################################################################
 
 
-def set_color(led_index, color, clear=False):
+def set_color(led_index, color, clear_others=False):
     led_index = clamp(led_index, 0, n-1)
-    if clear:
-        leds0[:] = bytearray(n * (0, 0, 0, 0))
+    if clear_others:
+        clear(leds0)
     leds0[led_index*4:led_index*4+4] = bytearray(color)
     neopixel_write(pin, leds0)
 
 
-def fade_random():
-    leds1[:] = bytearray(n * list(colors.random_saturated()))
-    fade(20)
-
-
 # ##############################################################################
-
-
-def run_random():
-    global static
-
-    static = False
-    timer.init(period=5000, mode=Timer.PERIODIC, callback=lambda t: fade_random())
 
 
 def run_solunar():
@@ -543,9 +536,9 @@ def run_larson_scanner(cardinal, primary, secondary):
 
 def stop_timer():
     global static
-    leds0[:] = leds1  # copy currently displayed colors to start array for next fade
-
-    static = True  # back to static mode
+    if not static:
+        leds0[:] = leds1  # copy currently displayed colors to start array for next fade
+        static = True  # back to static mode
     timer.deinit()
 
 
