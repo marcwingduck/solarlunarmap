@@ -73,7 +73,7 @@ neopixel_write(pin, leds0)
 # ##############################################################################
 
 
-def fade(steps=10, sleep=1):
+def fade(steps=20, sleep=0):
 
     if steps <= 1:
         leds0[:] = leds1
@@ -104,8 +104,13 @@ def off():
     fade()
 
 
+def ambient():
+    paris(leds1)
+    fade()
+
+
 def paris(leds):
-    leds[:] = bytearray(n * [0, 0, 0, 5])
+    leds[:] = bytearray(n * list(color_ambient))
     set_area2(1/leds_per_cm, 6, color_river, leds)
     set_area2(65/leds_per_cm, 10, color_river, leds)
     set_area2(143/leds_per_cm, 5, color_river, leds)
@@ -137,9 +142,8 @@ def set_area(center, size, primary, secondary, leds):
 
 
 def set_sides(north, east, south, west, linear=False):
-    # set_sides((10,0,0,0), (0,10,0,0), (0,0,10,0), (0,0,0,10), False)
 
-    leds1[:] = bytearray(n*4)
+    leds1[:] = bytearray(n * 4)
 
     if linear:
         for i in range(*cardinals['north'][2]):
@@ -157,6 +161,8 @@ def set_sides(north, east, south, west, linear=False):
         set_area2(cardinals['west'][0] / leds_per_cm, height, west, leds1)
 
     fade()
+
+# ##############################################################################
 
 
 def set_vertical(c1, c2):
@@ -363,6 +369,15 @@ def update_clock():
         neopixel_write(pin, leds0)
 
 
+def clock_demo():
+    for h in range(24):
+        for m in range(0, 60):
+            for s in range(0, 60):
+                for ms in range(0, 1000, 250):
+                    clock.update(h, m, s, ms, leds0)
+                    neopixel_write(pin, leds0)
+
+
 # ##############################################################################
 
 
@@ -462,15 +477,6 @@ def run_solunar():
 
     static = False
     timer.init(period=60000, mode=Timer.PERIODIC, callback=lambda t: paris_solunar())
-
-
-def clock_demo():
-    for h in range(24):
-        for m in range(0, 60):
-            for s in range(0, 60):
-                for ms in range(0, 1000, 250):
-                    clock.update(h, m, s, ms, leds0)
-                    neopixel_write(pin, leds0)
 
 
 def run_cls_clock(continuous=False):
